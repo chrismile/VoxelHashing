@@ -95,6 +95,40 @@ namespace Util
 		SAFE_DELETE_ARRAY(data);
 	}
 
+	template<typename T>
+	T clamp(T val, T minVal, T maxVal) {
+		if (val <= minVal) {
+			return minVal;
+		}
+		else if (val >= maxVal) {
+			return maxVal;
+		}
+		return val;
+	}
+
+	static void writeToNormalImage(float4* d_buffer, unsigned int width, unsigned int height, const std::string& filename) {
+		unsigned int size = width * height;
+		float* h_buffer = new float[4 * size];
+		cudaMemcpy(h_buffer, d_buffer, 4 * sizeof(float)*size, cudaMemcpyDeviceToHost);
+
+		ColorImageR8G8B8A8 cImage(height, width);
+		for (unsigned int i = 0; i < cImage.getWidth() * cImage.getHeight(); i++) {
+			if (h_buffer[4 * i + 0] == -std::numeric_limits<float>::infinity()) {
+				cImage.getDataPointer()[i] = vec4uc((unsigned char)0);
+			}
+			else {
+				cImage.getDataPointer()[i] = vec4uc(
+					clamp((unsigned char)(std::round((h_buffer[4 * i + 0] + 1.0f) * 127.5f)), 0, 255),
+					clamp((unsigned char)(std::round((h_buffer[4 * i + 1] + 1.0f) * 127.5f)), 0, 255),
+					clamp((unsigned char)(std::round((h_buffer[4 * i + 2] + 1.0f) * 127.5f)), 0, 255),
+					255);
+			}
+		}
+		FreeImageWrapper::saveImage(filename, cImage);
+
+		SAFE_DELETE_ARRAY(h_buffer);
+	}
+
 	static float* loadFloat4FromBinary(const std::string& filename, unsigned int& width, unsigned int& height, unsigned int& numChannels)
 	{
 		BinaryDataStreamFile s(filename, false);

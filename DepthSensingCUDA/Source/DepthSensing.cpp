@@ -1025,6 +1025,7 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext) {
 	const std::string inputDepthDir = baseFolder + "/" + "input_depth/"; if (!util::directoryExists(inputDepthDir)) util::makeDirectory(inputDepthDir);
 	const std::string reconstructionDir = baseFolder + "/" + "reconstruction/"; if (!util::directoryExists(reconstructionDir)) util::makeDirectory(reconstructionDir);
 	const std::string reconstructColorDir = baseFolder + "/" + "reconstruction_color/"; if (!util::directoryExists(reconstructColorDir)) util::makeDirectory(reconstructColorDir);
+	const std::string normalsDir = baseFolder + "/" + "reconstruction_normals/"; if (!util::directoryExists(normalsDir)) util::makeDirectory(normalsDir);
 
 	g_sceneRep->setLastRigidTransformAndCompactify(lastRigidTransform, g_CudaDepthSensor.getDepthCameraData());
 	g_rayCast->render(g_sceneRep->getHashData(), g_sceneRep->getHashParams(), g_CudaDepthSensor.getDepthCameraData(), lastRigidTransform);
@@ -1034,7 +1035,17 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext) {
 	ssFrameNumber << frameNumber;
 
 	mat4f view = mat4f::identity();
-	{	// reconstruction
+	{	// reconstruction normals
+		float4* d_normals;
+		if (frameNumber == 1) {
+			d_normals = g_CudaDepthSensor.getNormalMapFloat4();
+		}
+		else {
+			d_normals = g_rayCast->getRayCastData().d_normals;
+		}
+		Util::writeToNormalImage(d_normals, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), normalsDir + ssFrameNumber.str() + ".png");
+	}
+	/*{	// reconstruction
 		const mat4f& renderIntrinsics = g_RGBDAdapter.getColorIntrinsics();
 
 		g_CustomRenderTarget.Clear(pd3dImmediateContext);
@@ -1057,7 +1068,7 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext) {
 			if (image.getDataPointer()[i].x > 0 || image.getDataPointer()[i].y > 0 || image.getDataPointer()[i].z > 0)
 				image.getDataPointer()[i].w = 255;
 		}
-		FreeImageWrapper::saveImage(reconstructionDir + ssFrameNumber.str() + ".jpg", image);
+		FreeImageWrapper::saveImage(reconstructionDir + ssFrameNumber.str() + ".png", image);
 		SAFE_DELETE_ARRAY(data);
 	}
 	{	// reconstruction color
@@ -1084,7 +1095,7 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext) {
 			if (image.getDataPointer()[i].x > 0 || image.getDataPointer()[i].y > 0 || image.getDataPointer()[i].z > 0)
 				image.getDataPointer()[i].w = 255;
 		}
-		FreeImageWrapper::saveImage(reconstructColorDir + ssFrameNumber.str() + ".jpg", image);
+		FreeImageWrapper::saveImage(reconstructColorDir + ssFrameNumber.str() + ".png", image);
 		SAFE_DELETE_ARRAY(data);
 	}
 
@@ -1095,7 +1106,7 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext) {
 			if (image.getDataPointer()[i].x > 0 || image.getDataPointer()[i].y > 0 || image.getDataPointer()[i].z > 0)
 				image.getDataPointer()[i].w = 255;
 		}
-		FreeImageWrapper::saveImage(inputColorDir + ssFrameNumber.str() + ".jpg", image);
+		FreeImageWrapper::saveImage(inputColorDir + ssFrameNumber.str() + ".png", image);
 	}
 	{	// input depth
 		DepthImage depthImage(getRGBDSensor()->getDepthHeight(), getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthFloat());
@@ -1106,8 +1117,8 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext) {
 			if (depthImage.getDataPointer()[i] == 0.0f || depthImage.getDataPointer()[i] == -std::numeric_limits<float>::infinity())
 				image.getDataPointer()[i] = vec4f(0.0f);
 		}
-		FreeImageWrapper::saveImage(inputDepthDir + ssFrameNumber.str() + ".jpg", image);
-	}
+		FreeImageWrapper::saveImage(inputDepthDir + ssFrameNumber.str() + ".png", image);
+	}*/
 }
 
 
