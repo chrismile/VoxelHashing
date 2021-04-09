@@ -97,7 +97,8 @@
 	X(bool, s_reconstructionEnabled) \
 	X(bool, s_renderToFile) \
 	X(std::string, s_renderToFileDir) \
-	X(bool, s_offlineProcessing)
+	X(bool, s_offlineProcessing) \
+	X(bool, s_useSensorReplay)
 
 
 #ifndef VAR_NAME

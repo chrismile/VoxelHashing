@@ -118,9 +118,9 @@ namespace Util
 			}
 			else {
 				cImage.getDataPointer()[i] = vec4uc(
-					clamp((unsigned char)(std::round((h_buffer[4 * i + 0] + 1.0f) * 127.5f)), 0, 255),
-					clamp((unsigned char)(std::round((h_buffer[4 * i + 1] + 1.0f) * 127.5f)), 0, 255),
-					clamp((unsigned char)(std::round((h_buffer[4 * i + 2] + 1.0f) * 127.5f)), 0, 255),
+					clamp((unsigned char)(std::round((h_buffer[4 * i + 0] + 1.0f) * 127.5f)), (unsigned char)0, (unsigned char)255),
+					clamp((unsigned char)(std::round((h_buffer[4 * i + 1] + 1.0f) * 127.5f)), (unsigned char)0, (unsigned char)255),
+					clamp((unsigned char)(std::round((h_buffer[4 * i + 2] + 1.0f) * 127.5f)), (unsigned char)0, (unsigned char)255),
 					255);
 			}
 		}
