@@ -101,6 +101,7 @@
 	X(bool, s_useSensorReplay) \
     X(bool, s_useTemporalReconstruction) \
 	X(unsigned int, s_halfNumTemporalFrames) \
+	X(bool, s_shutdownAtEnd) \
 	X(bool, s_useDepthMapInpainting)
 
 

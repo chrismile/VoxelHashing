@@ -113,4 +113,5 @@ s_useSensorReplay = false;
 s_useTemporalReconstruction = true;
 s_halfNumTemporalFrames = 10;
 
+s_shutdownAtEnd = true;
 s_useDepthMapInpainting = true;
