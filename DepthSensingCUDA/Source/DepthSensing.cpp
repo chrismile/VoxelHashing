@@ -953,6 +953,7 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 		//if (sensor->getCurrSensFileIdx() >= GlobalAppState::get().s_binaryDumpSensorFile.size()) {
 		if (!GlobalAppState::get().s_playData && GlobalAppState::get().s_shutdownAtEnd) {
 			DXUTShutdown();
+			return;
 		}
 	}
 #endif
