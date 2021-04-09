@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <cutil_inline.h>
 #include <cutil_math.h>
 #include <device_functions.h>
@@ -45,6 +46,11 @@ struct RayCastData {
 		d_normals = NULL;
 		d_colors = NULL;
 
+		d_depthInpainted = NULL;
+		d_depth4Inpainted = NULL;
+		d_normalsInpainted = NULL;
+		d_depthMask = NULL;
+
 		d_vertexBuffer = NULL;
 
 		d_rayIntervalSplatMinArray = NULL;
@@ -58,6 +64,11 @@ struct RayCastData {
 		MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_depth4, sizeof(float4) * params.m_width * params.m_height));
 		MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_normals, sizeof(float4) * params.m_width * params.m_height));
 		MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_colors, sizeof(float4) * params.m_width * params.m_height));
+
+		MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_depthInpainted, sizeof(float) * params.m_width * params.m_height)); 
+		MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_depth4Inpainted, sizeof(float4) * params.m_width * params.m_height));
+		MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_normalsInpainted, sizeof(float4) * params.m_width * params.m_height));
+		MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_depthMask, sizeof(uint8_t) * params.m_width * params.m_height));
 	}
 
 	__host__
@@ -71,6 +82,11 @@ struct RayCastData {
 			MLIB_CUDA_SAFE_FREE(d_depth4);
 			MLIB_CUDA_SAFE_FREE(d_normals);
 			MLIB_CUDA_SAFE_FREE(d_colors);
+
+			MLIB_CUDA_SAFE_FREE(d_depthInpainted);
+			MLIB_CUDA_SAFE_FREE(d_depth4Inpainted);
+			MLIB_CUDA_SAFE_FREE(d_normalsInpainted);
+			MLIB_CUDA_SAFE_FREE(d_depthMask);
 	}
 #endif
 
@@ -267,6 +283,12 @@ struct RayCastData {
 	float4* d_depth4;
 	float4* d_normals;
 	float4* d_colors;
+
+	// For smoothed normal maps in deep learning.
+	float*   d_depthInpainted;
+	float4*  d_depth4Inpainted;
+	float4*  d_normalsInpainted;
+	uint8_t* d_depthMask;
 
 	float4* d_vertexBuffer; // ray interval splatting triangles, mapped from directx (memory lives there)
 

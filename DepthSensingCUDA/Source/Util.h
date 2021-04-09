@@ -111,19 +111,35 @@ namespace Util
 		float* h_buffer = new float[4 * size];
 		cudaMemcpy(h_buffer, d_buffer, 4 * sizeof(float)*size, cudaMemcpyDeviceToHost);
 
-		ColorImageR8G8B8A8 cImage(height, width);
+		ColorImageR8G8B8 cImage(height, width);
 		for (unsigned int i = 0; i < cImage.getWidth() * cImage.getHeight(); i++) {
 			if (h_buffer[4 * i + 0] == -std::numeric_limits<float>::infinity()) {
-				cImage.getDataPointer()[i] = vec4uc((unsigned char)0);
+				cImage.getDataPointer()[i] = vec3uc((unsigned char)0);
 			}
 			else {
-				cImage.getDataPointer()[i] = vec4uc(
+				cImage.getDataPointer()[i] = vec3uc(
 					clamp((unsigned char)(std::round((h_buffer[4 * i + 0] + 1.0f) * 127.5f)), (unsigned char)0, (unsigned char)255),
 					clamp((unsigned char)(std::round((h_buffer[4 * i + 1] + 1.0f) * 127.5f)), (unsigned char)0, (unsigned char)255),
-					clamp((unsigned char)(std::round((h_buffer[4 * i + 2] + 1.0f) * 127.5f)), (unsigned char)0, (unsigned char)255),
-					255);
+					clamp((unsigned char)(std::round((h_buffer[4 * i + 2] + 1.0f) * 127.5f)), (unsigned char)0, (unsigned char)255));
 			}
 		}
+		FreeImageWrapper::saveImage(filename, cImage);
+
+		SAFE_DELETE_ARRAY(h_buffer);
+	}
+
+	// For the depth mask
+	static void writeToImage(uint8_t* d_buffer, unsigned int width, unsigned int height, const std::string& filename) {
+		uint8_t* h_buffer = new uint8_t[width * height];
+		cudaMemcpy(h_buffer, d_buffer, sizeof(uint8_t)*width*height, cudaMemcpyDeviceToHost);
+
+		/*ColorImageR8G8B8 cImage(height, width);
+		for (unsigned int i = 0; i < cImage.getWidth() * cImage.getHeight(); i++) {
+			cImage.getDataPointer()[i] = vec3uc(h_buffer[i]);
+		}
+		FreeImageWrapper::saveImage(filename, cImage);*/
+
+		ColorImageR8 cImage(height, width, h_buffer);
 		FreeImageWrapper::saveImage(filename, cImage);
 
 		SAFE_DELETE_ARRAY(h_buffer);

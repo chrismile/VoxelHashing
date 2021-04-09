@@ -110,6 +110,7 @@ void CALLBACK		OnD3D11ReleasingSwapChain( void* pUserContext );
 void CALLBACK		OnD3D11DestroyDevice( void* pUserContext );
 void CALLBACK		OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext* pd3dImmediateContext, double fTime, float fElapsedTime, void* pUserContext );
 
+void saveColorImage(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameNumber);
 void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameNumber, bool replaySensorData);
 
 void InitApp();

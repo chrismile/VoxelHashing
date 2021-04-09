@@ -37,7 +37,6 @@ HRESULT DX11RayIntervalSplatting::initialize( ID3D11Device* pd3dDevice, unsigned
 	// Ray Interval
 	V_RETURN(CompileShaderFromFile(L"Shaders/RayIntervalSplatting.hlsl", "VS", "vs_5_0", &pBlob));
 	V_RETURN(pd3dDevice->CreateVertexShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pVertexShaderSplatting));
-	//SAFE_RELEASE(pBlob);
 
 	D3D11_INPUT_ELEMENT_DESC layout[] =
 	{

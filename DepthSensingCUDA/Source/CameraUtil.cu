@@ -1,6 +1,7 @@
 #ifndef _CAMERA_UTIL_
 #define _CAMERA_UTIL_
 
+#include <cstdint>
 #include <cutil_inline.h>
 #include <cutil_math.h>
 
@@ -699,6 +700,75 @@ extern "C" void computeNormals(float4* d_output, float4* d_input, unsigned int w
 	const dim3 blockSize(T_PER_BLOCK, T_PER_BLOCK);
 
 	computeNormalsDevice<<<gridSize, blockSize>>>(d_output, d_input, width, height);
+
+#ifdef _DEBUG
+	cutilSafeCall(cudaDeviceSynchronize());
+	cutilCheckMsg(__FUNCTION__);
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Compute Point from Depth 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__global__ void computeDepth4Device(float4* d_depth4, float* d_depth, const DepthCameraData& cameraData, unsigned int width, unsigned int height)
+{
+	const unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
+	const unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if(x >= width || y >= height) return;
+
+	float depth = d_depth[y*width+x];
+	float4 depth4 = make_float4(MINF,MINF,MINF,MINF);
+	if (depth != MINF) {
+		depth4 = make_float4(cameraData.kinectDepthToSkeleton(x, y, depth), 1.0f);
+	}
+	d_depth4[y*width+x] = depth4;
+}
+
+extern "C" void computeDepth4(float4* d_depth4, float* d_depth, const DepthCameraData& cameraData, unsigned int width, unsigned int height)
+{
+	const dim3 gridSize((width + T_PER_BLOCK - 1)/T_PER_BLOCK, (height + T_PER_BLOCK - 1)/T_PER_BLOCK);
+	const dim3 blockSize(T_PER_BLOCK, T_PER_BLOCK);
+
+	computeDepth4Device<<<gridSize, blockSize>>>(d_depth4, d_depth, cameraData, width, height);
+
+#ifdef _DEBUG
+	cutilSafeCall(cudaDeviceSynchronize());
+	cutilCheckMsg(__FUNCTION__);
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Compute Depth Mask
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#ifndef M_PI
+# define M_PI 3.14159265358979323846
+#endif
+
+__global__ void computeDepthMaskDevice(uint8_t* d_depthMask, float* d_depth, float4* d_normals, unsigned int width, unsigned int height)
+{
+	const unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
+	const unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if(x >= width || y >= height) return;
+
+	uint8_t maskValue = 255;
+	float4 normal = d_normals[y*width+x];
+    float cosAngle = std::acos(normal.z) / M_PI * 180.0f;
+	if (d_depth[y*width+x] == MINF || normal.x == MINF || cosAngle > 78.0f) {
+		maskValue = 0;
+	}
+	d_depthMask[y*width+x] = maskValue;
+}
+
+extern "C" void computeDepthMask(uint8_t* d_depthMask, float* d_depth, float4* d_normals, unsigned int width, unsigned int height)
+{
+	const dim3 gridSize((width + T_PER_BLOCK - 1)/T_PER_BLOCK, (height + T_PER_BLOCK - 1)/T_PER_BLOCK);
+	const dim3 blockSize(T_PER_BLOCK, T_PER_BLOCK);
+
+	computeDepthMaskDevice<<<gridSize, blockSize>>>(d_depthMask, d_depth, d_normals, width, height);
 
 #ifdef _DEBUG
 	cutilSafeCall(cudaDeviceSynchronize());

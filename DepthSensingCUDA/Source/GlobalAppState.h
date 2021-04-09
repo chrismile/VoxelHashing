@@ -98,7 +98,10 @@
 	X(bool, s_renderToFile) \
 	X(std::string, s_renderToFileDir) \
 	X(bool, s_offlineProcessing) \
-	X(bool, s_useSensorReplay)
+	X(bool, s_useSensorReplay) \
+    X(bool, s_useTemporalReconstruction) \
+	X(unsigned int, s_halfNumTemporalFrames) \
+	X(bool, s_useDepthMapInpainting)
 
 
 #ifndef VAR_NAME

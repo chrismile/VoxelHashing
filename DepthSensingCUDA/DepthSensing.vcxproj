@@ -130,6 +130,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\BinaryDumpReader.cpp" />
+    <ClCompile Include="Source\CircularQueue.cpp" />
     <ClCompile Include="Source\CUDABuildLinearSystem.cpp" />
     <ClCompile Include="Source\CUDABuildLinearSystemRGBD.cpp" />
     <ClCompile Include="Source\CUDACameraTrackingMultiRes.cpp" />
@@ -215,6 +216,7 @@
     <ClInclude Include="Source\BinaryDumpReader.h" />
     <ClInclude Include="Source\CameraParams.h" />
     <ClInclude Include="Source\CameraTrackingInput.h" />
+    <ClInclude Include="Source\CircularQueue.h" />
     <ClInclude Include="Source\CUDABuildLinearSystem.h" />
     <ClInclude Include="Source\CUDABuildLinearSystemRGBD.h" />
     <ClInclude Include="Source\CUDACameraTrackingMultiRes.h" />

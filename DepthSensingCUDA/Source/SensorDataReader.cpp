@@ -7,6 +7,7 @@
 
 #ifdef SENSOR_DATA_READER
 
+#include "CircularQueue.h"
 #include "sensorData/sensorData.h"
 
 #include <algorithm>
@@ -28,12 +29,26 @@ SensorDataReader::SensorDataReader()
 	m_sensorData = NULL;
 	m_sensorDataCache = NULL;
 
+	if (GlobalAppState::get().s_useTemporalReconstruction) {
+		m_frameQueue = new CircularQueue(2 * GlobalAppState::get().s_halfNumTemporalFrames + 1);
+	}
+
 	m_currSensFileIdx = 0;
 }
 
 SensorDataReader::~SensorDataReader()
 {
 	releaseData();
+
+	if (GlobalAppState::get().s_useTemporalReconstruction) {
+		while (!m_frameQueue->isEmpty()) {
+			m_frameQueue->popFront().free();
+		}
+		if (GlobalAppState::get().s_useTemporalReconstruction) {
+			delete m_frameQueue;
+			m_frameQueue = nullptr;
+		}
+	}
 }
 
 
@@ -76,8 +91,27 @@ HRESULT SensorDataReader::createFirstConnected()
 	return S_OK;
 }
 
+void SensorDataReader::setCurrFrame(unsigned int currFrame) {
+	// Assumes that we only advance the frame start index one by one.
+	if (GlobalAppState::get().s_useTemporalReconstruction) {
+		if (m_queueStartIdx != currFrame && !m_frameQueue->isEmpty()) {
+			m_frameQueue->popFront().free();
+		}
+	}
+	m_queueStartIdx = currFrame;
+	m_currFrame = currFrame;
+}
+
 void SensorDataReader::loadNextSensFile() {
 	if (!GlobalAppState::get().s_playData) return;
+
+	// Clear all entries in the frame queue.
+	if (GlobalAppState::get().s_useTemporalReconstruction) {
+		while (!m_frameQueue->isEmpty()) {
+			m_frameQueue->popFront().free();
+		}
+		m_queueStartIdx = 0;
+	}
 
 	if (m_currFrame >= m_numFrames)	{
 		std::cout << "Loading new sens file!" << std::endl;
@@ -117,7 +151,21 @@ HRESULT SensorDataReader::processDepth()
 		float* depth = getDepthFloat();
 		//memcpy(depth, m_data.m_DepthImages[m_currFrame], sizeof(float)*getDepthWidth()*getDepthHeight());
 
-		ml::RGBDFrameCacheRead::FrameState frameState = m_sensorDataCache->getNext();
+		ml::RGBDFrameCacheRead::FrameState frameState;
+		if (GlobalAppState::get().s_useTemporalReconstruction) {
+			unsigned int relativeIdx = m_currFrame - m_queueStartIdx;
+			if (relativeIdx < m_frameQueue->getSize()) {
+				frameState = m_frameQueue->at(m_currFrame - m_queueStartIdx);
+			}
+			else {
+				frameState = m_sensorDataCache->getNext();
+				m_frameQueue->enqueue(frameState);
+			}
+		}
+		else {
+			frameState = m_sensorDataCache->getNext();
+		}
+
 		//ml::RGBDFrameCacheRead::FrameState frameState;
 		//frameState.m_colorFrame = m_sensorData->m_frames[m_currFrame].decompressColorAlloc();
 		//frameState.m_depthFrame = m_sensorData->m_frames[m_currFrame].decompressDepthAlloc();
@@ -147,7 +195,9 @@ HRESULT SensorDataReader::processDepth()
 				m_colorRGBX[i] = vec4uc(frameState.m_colorFrame[i]);
 			}
 		}
-		frameState.free();
+		if (!GlobalAppState::get().s_useTemporalReconstruction) {
+			frameState.free();
+		}
 
 		//if (m_currFrame == 50) {
 		//	m_sensorDataCache->endDecompression();

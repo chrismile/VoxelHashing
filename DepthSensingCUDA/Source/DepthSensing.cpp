@@ -650,6 +650,9 @@ void CALLBACK OnD3D11ReleasingSwapChain( void* pUserContext )
 
 static std::vector<bool> g_replayValidFrame;
 static std::vector<mat4f> g_replayTrajectory;
+static mat4f g_temporalCentralRigidTransform;
+static unsigned int g_temporalCentralFrameCounter = 0;
+static unsigned int g_temporalFrameCounter = 0;
 
 void reconstruction()
 {
@@ -864,13 +867,14 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 
 #ifdef SENSOR_DATA_READER
 	//only if sensor data reader
-	if (GlobalAppState::get().s_sensorIdx == GlobalAppState::Sensor_SensorDataReader && GlobalAppState::get().s_playData) {
+	if (GlobalAppState::get().s_sensorIdx == GlobalAppState::Sensor_SensorDataReader && GlobalAppState::get().s_playData && !GlobalAppState::get().s_useTemporalReconstruction) {
 		SensorDataReader* sensor = (SensorDataReader*)getRGBDSensor();
 
 		if (sensor->getCurrFrame() >= sensor->getNumFrames()) {
 			if (!GlobalAppState::get().s_useSensorReplay || (replaySensorData && replayFrameNumber >= sensor->getNumFrames())) {
 				//recreate adapter and cuda sensor to use new intrinsics
 				g_replayTrajectory.clear();
+				g_replayValidFrame.clear();
 				replayFrameNumber = 0;
 				sensor->loadNextSensFile();
 
@@ -892,6 +896,48 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 			else if (GlobalAppState::get().s_useSensorReplay && !replaySensorData) {
 				replaySensorData = !replaySensorData;
 			}
+		}
+	}
+
+	if (GlobalAppState::get().s_useTemporalReconstruction) {
+		assert(GlobalAppState::get().s_sensorIdx == GlobalAppState::Sensor_SensorDataReader);
+		SensorDataReader* sensor = (SensorDataReader*)getRGBDSensor();
+
+		if ((int)g_temporalFrameCounter - (int)g_temporalCentralFrameCounter > (int)GlobalAppState::get().s_halfNumTemporalFrames || g_temporalFrameCounter >= sensor->getNumFrames()) {
+			g_temporalCentralFrameCounter++;
+			g_temporalFrameCounter = (unsigned int)std::max(0, (int)g_temporalCentralFrameCounter - (int)GlobalAppState::get().s_halfNumTemporalFrames);
+			if (g_temporalCentralFrameCounter < sensor->getNumFrames()) {
+				sensor->setCurrFrame(g_temporalFrameCounter);
+			}
+			g_sceneRep->reset();
+		}
+		if (g_temporalCentralFrameCounter >= sensor->getNumFrames()) {
+			//recreate adapter and cuda sensor to use new intrinsics
+			g_replayTrajectory.clear();
+			g_replayValidFrame.clear();
+			replayFrameNumber = 0;
+			g_temporalCentralFrameCounter = 0;
+			g_temporalFrameCounter = 0;
+			sensor->loadNextSensFile();
+			sensor->setCurrFrame(g_temporalFrameCounter);
+
+			if (GlobalAppState::get().s_playData) {	//this if is a bit of a hack to avoid an overflow...			
+				g_RGBDAdapter.OnD3D11DestroyDevice();
+				g_CudaDepthSensor.OnD3D11DestroyDevice();
+				SAFE_DELETE(g_rayCast);
+
+				g_RGBDAdapter.OnD3D11CreateDevice(DXUTGetD3D11Device(), getRGBDSensor(), GlobalAppState::get().s_adapterWidth, GlobalAppState::get().s_adapterHeight);
+				g_CudaDepthSensor.OnD3D11CreateDevice(DXUTGetD3D11Device(), &g_RGBDAdapter);
+				g_rayCast = new CUDARayCastSDF(CUDARayCastSDF::parametersFromGlobalAppState(GlobalAppState::get(), g_RGBDAdapter.getColorIntrinsics(), g_RGBDAdapter.getColorIntrinsicsInv()));
+				g_sceneRep->bindDepthCameraTextures(g_CudaDepthSensor.getDepthCameraData());
+			}
+		}
+	}
+
+	if (GlobalAppState::get().s_sensorIdx == GlobalAppState::Sensor_SensorDataReader) {
+		SensorDataReader* sensor = (SensorDataReader*)getRGBDSensor();
+		if (sensor->getCurrSensFileIdx() >= GlobalAppState::get().s_binaryDumpSensorFile.size()) {
+			DXUTShutdown();
 		}
 	}
 #endif
@@ -926,9 +972,11 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 			g_RGBDAdapter.recordFrame();
 			if (!GlobalAppState::get().s_reconstructionEnabled) {
 				g_RGBDAdapter.recordTrajectory(mat4f::zero());
-				g_replayTrajectory.push_back(mat4f::zero());
-				g_replayValidFrame.push_back(false);
 			}
+		}
+		if (!GlobalAppState::get().s_reconstructionEnabled) {
+			g_replayTrajectory.push_back(mat4f::zero());
+			g_replayValidFrame.push_back(false);
 		}
 
 		if (GlobalAppState::get().s_reconstructionEnabled) {
@@ -1039,11 +1087,24 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 		exit(0);
 	}
 
-	if (((replaySensorData && g_replayValidFrame.at(replayFrameNumber)) || !GlobalAppState::get().s_useSensorReplay) && GlobalAppState::get().s_renderToFile) {
+	if (g_temporalCentralFrameCounter == g_temporalFrameCounter) {
+		g_temporalCentralRigidTransform = g_sceneRep->getLastRigidTransform();
+	}
+	if (GlobalAppState::get().s_useTemporalReconstruction && g_temporalFrameCounter == g_temporalCentralFrameCounter && GlobalAppState::get().s_renderToFile) {
+		saveColorImage(pd3dImmediateContext, g_temporalCentralFrameCounter);
+	}
+	if (GlobalAppState::get().s_useTemporalReconstruction && (int)g_temporalFrameCounter - (int)g_temporalCentralFrameCounter == (int)GlobalAppState::get().s_halfNumTemporalFrames && GlobalAppState::get().s_renderToFile) {
+		renderToFile(pd3dImmediateContext, g_temporalCentralFrameCounter, replaySensorData);
+	}
+	if (!GlobalAppState::get().s_useTemporalReconstruction && ((replaySensorData && g_replayValidFrame.at(replayFrameNumber)) || !GlobalAppState::get().s_useSensorReplay) && GlobalAppState::get().s_renderToFile) {
 		unsigned int frameNumber = replaySensorData ? replayFrameNumber : g_RGBDAdapter.getFrameNumber();
+		saveColorImage(pd3dImmediateContext, frameNumber);
 		renderToFile(pd3dImmediateContext, frameNumber, replaySensorData);
 	}
 
+	if (GlobalAppState::get().s_useTemporalReconstruction) {
+		g_temporalFrameCounter++;
+	}
 	if (replaySensorData) {
 		replayFrameNumber++;
 	}
@@ -1052,6 +1113,28 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 }
 
 
+// From sgl, BSD license: https://github.com/chrismile/sgl/blob/master/src/Utils/File/FileUtils.cpp
+// /home/user/Info.txt -> Info.txt
+std::string getPureFilename(const std::string &path)
+{
+	for (int i = (int)path.size() - 2; i >= 0; --i) {
+		if (path.at(i) == '/' || path.at(i) == '\\') {
+			return path.substr(i + 1, path.size() - i - 1);
+		}
+	}
+	return path;
+}
+
+// Info.txt -> Info
+std::string removeExtension(const std::string &path)
+{
+	for (int i = (int)path.size() - 1; i >= 0; --i) {
+		if (path.at(i) == '.') {
+			return path.substr(0, i);
+		}
+	}
+	return path;
+}
 
 void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameNumber, bool replaySensorData) {
 
@@ -1060,13 +1143,42 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 	const mat4f& lastRigidTransform = g_sceneRep->getLastRigidTransform();
 	if (!util::directoryExists(baseFolder)) util::makeDirectory(baseFolder);
 
-	const std::string inputColorDir = baseFolder + "/" + "input_color/"; if (!util::directoryExists(inputColorDir)) util::makeDirectory(inputColorDir);
-	const std::string inputDepthDir = baseFolder + "/" + "input_depth/"; if (!util::directoryExists(inputDepthDir)) util::makeDirectory(inputDepthDir);
-	const std::string reconstructionDir = baseFolder + "/" + "reconstruction/"; if (!util::directoryExists(reconstructionDir)) util::makeDirectory(reconstructionDir);
-	const std::string reconstructColorDir = baseFolder + "/" + "reconstruction_color/"; if (!util::directoryExists(reconstructColorDir)) util::makeDirectory(reconstructColorDir);
-	const std::string normalsDir = baseFolder + "/" + "reconstruction_normals/"; if (!util::directoryExists(normalsDir)) util::makeDirectory(normalsDir);
+	//const std::string inputColorDir = baseFolder + "/" + "input_color/"; if (!util::directoryExists(inputColorDir)) util::makeDirectory(inputColorDir);
+	//const std::string inputDepthDir = baseFolder + "/" + "input_depth/"; if (!util::directoryExists(inputDepthDir)) util::makeDirectory(inputDepthDir);
+	//const std::string reconstructionDir = baseFolder + "/" + "reconstruction/"; if (!util::directoryExists(reconstructionDir)) util::makeDirectory(reconstructionDir);
+	//const std::string reconstructColorDir = baseFolder + "/" + "reconstruction_color/"; if (!util::directoryExists(reconstructColorDir)) util::makeDirectory(reconstructColorDir);
+	//std::string inputColorDir;
+	std::string depthMaskDir;
+	std::string normalsDir; 
 
-	if (replaySensorData) {
+	if (GlobalAppState::get().s_sensorIdx == GlobalAppState::Sensor_SensorDataReader) {
+		SensorDataReader* sensor = (SensorDataReader*)getRGBDSensor();
+		std::string sensFilePath = "UNDEFINED";
+		if (sensor->getCurrSensFileIdx() < GlobalAppState::get().s_binaryDumpSensorFile.size()) {
+			sensFilePath = GlobalAppState::get().s_binaryDumpSensorFile[sensor->getCurrSensFileIdx()];
+		}
+		std::string sensFileName = getPureFilename(sensFilePath);
+		std::string sceneName = removeExtension(sensFileName);
+
+		//inputColorDir = baseFolder + "/" + sceneName + "/" + "color/";
+		depthMaskDir = baseFolder + "/" + sceneName + "/" + "mask/";
+		normalsDir = baseFolder + "/" + sceneName + "/" + "normal/";
+	}
+	else {
+		//inputColorDir = baseFolder + "/" + "input_color/";
+		depthMaskDir = baseFolder + "/" + "mask/";
+		normalsDir = baseFolder + "/" + "normal/";
+	}
+	//if (!util::directoryExists(inputColorDir)) util::makeDirectory(inputColorDir);
+	if (!util::directoryExists(depthMaskDir)) util::makeDirectory(depthMaskDir);
+	if (!util::directoryExists(normalsDir)) util::makeDirectory(normalsDir);
+
+
+	if (GlobalAppState::get().s_useTemporalReconstruction) {
+		g_sceneRep->setLastRigidTransformAndCompactify(g_temporalCentralRigidTransform, g_CudaDepthSensor.getDepthCameraData());
+		g_rayCast->render(g_sceneRep->getHashData(), g_sceneRep->getHashParams(), g_CudaDepthSensor.getDepthCameraData(), g_temporalCentralRigidTransform);
+	}
+	else if (replaySensorData) {
 		mat4f lastRigidTransform = g_replayTrajectory.at(frameNumber);
 		g_sceneRep->setLastRigidTransform(lastRigidTransform);
 		g_rayCast->render(g_sceneRep->getHashData(), g_sceneRep->getHashParams(), g_CudaDepthSensor.getDepthCameraData(), lastRigidTransform);
@@ -1076,18 +1188,26 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 		g_rayCast->render(g_sceneRep->getHashData(), g_sceneRep->getHashParams(), g_CudaDepthSensor.getDepthCameraData(), lastRigidTransform);
 	}
 
-	std::stringstream ssFrameNumber;	unsigned int numCountDigits = 6;
-	for (unsigned int i = std::max(1u, (unsigned int)std::ceilf(std::log10f((float)frameNumber + 1))); i < numCountDigits; i++) ssFrameNumber << "0";
+	std::stringstream ssFrameNumber;
+	//unsigned int numCountDigits = 6;
+	//for (unsigned int i = std::max(1u, (unsigned int)std::ceilf(std::log10f((float)frameNumber + 1))); i < numCountDigits; i++) ssFrameNumber << "0";
 	ssFrameNumber << frameNumber;
+
+	Util::writeToImage(g_rayCast->getRayCastData().d_depthMask, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), depthMaskDir + ssFrameNumber.str() + ".png");
 
 	mat4f view = mat4f::identity();
 	{	// reconstruction normals
 		float4* d_normals;
-		if (!replaySensorData && frameNumber == 1) {
+		if (!replaySensorData && !GlobalAppState::get().s_useTemporalReconstruction && frameNumber == 1) {
 			d_normals = g_CudaDepthSensor.getNormalMapFloat4();
 		}
 		else {
-			d_normals = g_rayCast->getRayCastData().d_normals;
+			if (GlobalAppState::getInstance().s_useDepthMapInpainting) {
+				d_normals = g_rayCast->getRayCastData().d_normalsInpainted;
+			}
+			else {
+				d_normals = g_rayCast->getRayCastData().d_normals;
+			}
 		}
 		Util::writeToNormalImage(d_normals, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), normalsDir + ssFrameNumber.str() + ".png");
 	}
@@ -1147,12 +1267,15 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 
 	// for input color/depth
 	{	// input color
-		ColorImageR8G8B8A8 image(getRGBDSensor()->getColorHeight(), getRGBDSensor()->getColorWidth(), (vec4uc*)getRGBDSensor()->getColorRGBX());
-		for (unsigned int i = 0; i < image.getWidth()*image.getHeight(); i++) {
-			if (image.getDataPointer()[i].x > 0 || image.getDataPointer()[i].y > 0 || image.getDataPointer()[i].z > 0)
-				image.getDataPointer()[i].w = 255;
+		vec4uc* colorData4 = (vec4uc*)getRGBDSensor()->getColorRGBX();
+		vec3uc* colorData = new vec3uc[getRGBDSensor()->getColorWidth()*getRGBDSensor()->getColorHeight()];
+		for (unsigned int i = 0; i < getRGBDSensor()->getColorWidth()*getRGBDSensor()->getColorHeight(); i++) {
+			vec4uc color4 = colorData4[i];
+			colorData[i] = vec3uc(color4.x, color4.y, color4.z);
 		}
-		FreeImageWrapper::saveImage(inputColorDir + ssFrameNumber.str() + ".png", image);
+		ColorImageR8G8B8 image(getRGBDSensor()->getColorHeight(), getRGBDSensor()->getColorWidth(), colorData);
+		FreeImageWrapper::saveImage(inputColorDir + ssFrameNumber.str() + ".jpg", image);
+		delete[] colorData;
 	}
 	{	// input depth
 		DepthImage depthImage(getRGBDSensor()->getDepthHeight(), getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthFloat());
@@ -1165,6 +1288,45 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 		}
 		FreeImageWrapper::saveImage(inputDepthDir + ssFrameNumber.str() + ".png", image);
 	}*/
+}
+
+void saveColorImage(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameNumber) {
+
+	std::string baseFolder = GlobalAppState::get().s_renderToFileDir;
+	if (!util::directoryExists(baseFolder)) util::makeDirectory(baseFolder);
+	std::string inputColorDir;
+
+	if (GlobalAppState::get().s_sensorIdx == GlobalAppState::Sensor_SensorDataReader) {
+		SensorDataReader* sensor = (SensorDataReader*)getRGBDSensor();
+		std::string sensFilePath = "UNDEFINED";
+		if (sensor->getCurrSensFileIdx() < GlobalAppState::get().s_binaryDumpSensorFile.size()) {
+			sensFilePath = GlobalAppState::get().s_binaryDumpSensorFile[sensor->getCurrSensFileIdx()];
+		}
+		std::string sensFileName = getPureFilename(sensFilePath);
+		std::string sceneName = removeExtension(sensFileName);
+
+		inputColorDir = baseFolder + "/" + sceneName + "/" + "color/";
+	}
+	else {
+		inputColorDir = baseFolder + "/" + "input_color/";
+	}
+	if (!util::directoryExists(inputColorDir)) util::makeDirectory(inputColorDir);
+
+	std::stringstream ssFrameNumber;
+	ssFrameNumber << frameNumber;
+
+	// for input color/depth
+	{	// input color
+		vec4uc* colorData4 = (vec4uc*)getRGBDSensor()->getColorRGBX();
+		vec3uc* colorData = new vec3uc[getRGBDSensor()->getColorWidth()*getRGBDSensor()->getColorHeight()];
+		for (unsigned int i = 0; i < getRGBDSensor()->getColorWidth()*getRGBDSensor()->getColorHeight(); i++) {
+			vec4uc color4 = colorData4[i];
+			colorData[i] = vec3uc(color4.x, color4.y, color4.z);
+		}
+		ColorImageR8G8B8 image(getRGBDSensor()->getColorHeight(), getRGBDSensor()->getColorWidth(), colorData);
+		FreeImageWrapper::saveImage(inputColorDir + ssFrameNumber.str() + ".jpg", image);
+		delete[] colorData;
+	}
 }
 
 

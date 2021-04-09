@@ -86,6 +86,18 @@ public:
 	}
 
 
+	static uint8_t toUByte(const uint8_t val) {
+		return val;
+	}
+	static uint8_t toUByte(const uint16_t val) {
+		return val >> 8;
+	}
+	static uint8_t toUByte(const ml::vec3uc& val) {
+		return val.x;
+	}
+	static uint8_t toUByte(const ml::vec3f& val) {
+		return math::clamp<int>((int)std::round(val.x * 255), 0, 255);
+	}
 
 	template<class T>
 	static void saveImage(const std::string &filename, const BaseImage<T>& image, bool debugPrint = false) {
@@ -111,14 +123,26 @@ public:
 			BYTE* bits = FreeImage_GetBits(dib);
 			unsigned int pitch = FreeImage_GetPitch(dib);
 
-			if (numChannels == 1 && bytesPerChannel == 2) {
+			if (numChannels == 1 && bytesPerChannel == 1) {
+				//depth mask; unsigned byte
+				#pragma omp parallel for
+				for (int i = 0; i < (int)height; i++) {
+					BYTE* bitsRowStart = bits + (height - 1 - i)*pitch;
+					uint8_t* bitsRowStartUShort = (uint8_t*)bitsRowStart;
+					for (int j = 0; j < (int)width; j++) {
+						uint8_t v = toUByte(image(i, j));
+						bitsRowStartUShort[j] = v;
+					}
+				}
+			}
+			else if (numChannels == 1 && bytesPerChannel == 2) {
 				//depth map; unsigned short
 				#pragma omp parallel for
 				for (int i = 0; i < (int)height; i++) {
-					BYTE* bitsRowStart = bits + (height-1-i)*pitch;
+					BYTE* bitsRowStart = bits + (height - 1 - i)*pitch;
 					USHORT* bitsRowStartUShort = (USHORT*)bitsRowStart;
 					for (int j = 0; j < (int)width; j++) {
-						USHORT v;	convertToUSHORT(v, image(i,j));
+						USHORT v;	convertToUSHORT(v, image(i, j));
 						bitsRowStartUShort[j] = v;
 						//const unsigned short& v = image(i,j);
 						//bitsRowStart[j*bytesPerPixel + 0] = ((BYTE*)(const unsigned short*)&v)[0];

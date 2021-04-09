@@ -71,13 +71,14 @@ public:
 		ID3DBlob* pBlob = NULL;
 		V_RETURN(CompileShaderFromFile(L"Shaders/RGBDRenderer.hlsl", "EmptyVS", "vs_5_0", &pBlob));
 		V_RETURN(pd3dDevice->CreateVertexShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_EmptyVS));
+		SAFE_RELEASE(pBlob);
 
 		V_RETURN(CompileShaderFromFile(L"Shaders/RGBDRenderer.hlsl", "RGBDRendererGS", "gs_5_0", &pBlob));
 		V_RETURN(pd3dDevice->CreateGeometryShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_RGBDRendererGS));
+		SAFE_RELEASE(pBlob);
 
 		V_RETURN(CompileShaderFromFile(L"Shaders/RGBDRenderer.hlsl", "RGBDRendererRawDepthPS", "ps_5_0", &pBlob));
 		V_RETURN(pd3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_RGBDRendererRawDepthPS));
-
 		SAFE_RELEASE(pBlob);
 		
 		D3D11_SAMPLER_DESC sdesc;
