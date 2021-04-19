@@ -2908,8 +2908,9 @@ void DXUTRender3DEnvironment9()
 
     if( GetDXUTState().GetDeviceLost() || DXUTIsRenderingPaused() || !DXUTIsActive() )
     {
+		// Christoph 2021-04-21: Who thought this was a good idea?
         // Window is minimized or paused so yield CPU time to other processes
-        Sleep( 50 );
+        //Sleep( 50 );
     }
 
     // If no device created yet because device was lost (ie. another fullscreen exclusive device exists), 
@@ -3829,9 +3830,10 @@ void DXUTRender3DEnvironment11()
 
     if( DXUTIsRenderingPaused() || !DXUTIsActive() || GetDXUTState().GetRenderingOccluded() )
     {
-        // Window is minimized/paused/occluded/or not exclusive so yield CPU time to other processes
-        Sleep( 50 );
-    }
+		// Christoph 2021-04-21: Who thought this was a good idea?
+		// Window is minimized/paused/occluded/or not exclusive so yield CPU time to other processes
+		//Sleep( 50 );
+	}
 
     // Get the app's time, in seconds. Skip rendering if no time elapsed
     double fTime, fAbsTime; float fElapsedTime;

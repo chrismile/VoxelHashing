@@ -747,7 +747,45 @@ extern "C" void computeDepth4(float4* d_depth4, float* d_depth, const DepthCamer
 # define M_PI 3.14159265358979323846
 #endif
 
-__global__ void computeDepthMaskDevice(uint8_t* d_depthMask, float* d_depth, float4* d_normals, unsigned int width, unsigned int height)
+__global__ void computeDepthMaskDevice(uint8_t* d_depthMask, float* d_depth, float4* d_depth4, float4* d_normals, unsigned int width, unsigned int height)
+{
+	const unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
+	const unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if(x >= width || y >= height) return;
+
+	float depth = d_depth[y*width+x];
+	float depthLeft = depth;
+	float depthRight = depth;
+	float depthTop = depth;
+	float depthBottom = depth;
+	if (x > 0) {
+		depthLeft = d_depth[y*width+(x-1)];
+	}
+	if (x < width - 1) {
+		depthRight = d_depth[y*width+(x+1)];
+	}
+	if (y > 0) {
+		depthTop = d_depth[(y-1)*width+x];
+	}
+	if (y < height - 1) {
+		depthBottom = d_depth[(y+1)*width+x];
+	}
+
+	uint8_t maskValue = 255;
+	float4 normal = d_normals[y*width+x];
+	float4 depth4 = d_depth4[y*width+x];
+	float ptLength = std::sqrt(depth4.x * depth4.x + depth4.y * depth4.y + depth4.z * depth4.z);
+	float4 viewDir = make_float4(depth4.x / ptLength, depth4.y / ptLength, depth4.z / ptLength, 0.0f);
+    //float cosAngle = std::acos(normal.z) / M_PI * 180.0f;
+    float cosAngle = std::acos(normal.x * viewDir.x + normal.y * viewDir.y + normal.z * viewDir.z) / M_PI * 180.0f;
+	if (depth == MINF || depthLeft == MINF || depthRight == MINF || depthTop == MINF || depthBottom == MINF || normal.x == MINF || cosAngle > 87.0f) {
+		maskValue = 0;
+	}
+	d_depthMask[y*width+x] = maskValue;
+}
+
+__global__ void computeDepthMaskDevice_NoVoxelHashing(uint8_t* d_depthMask, float* d_depth, float4* d_normals, unsigned int width, unsigned int height)
 {
 	const unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
 	const unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -763,12 +801,25 @@ __global__ void computeDepthMaskDevice(uint8_t* d_depthMask, float* d_depth, flo
 	d_depthMask[y*width+x] = maskValue;
 }
 
-extern "C" void computeDepthMask(uint8_t* d_depthMask, float* d_depth, float4* d_normals, unsigned int width, unsigned int height)
+extern "C" void computeDepthMask(uint8_t* d_depthMask, float* d_depth, float4* d_depth4, float4* d_normals, unsigned int width, unsigned int height)
 {
 	const dim3 gridSize((width + T_PER_BLOCK - 1)/T_PER_BLOCK, (height + T_PER_BLOCK - 1)/T_PER_BLOCK);
 	const dim3 blockSize(T_PER_BLOCK, T_PER_BLOCK);
 
-	computeDepthMaskDevice<<<gridSize, blockSize>>>(d_depthMask, d_depth, d_normals, width, height);
+	computeDepthMaskDevice<<<gridSize, blockSize>>>(d_depthMask, d_depth, d_depth4, d_normals, width, height);
+
+#ifdef _DEBUG
+	cutilSafeCall(cudaDeviceSynchronize());
+	cutilCheckMsg(__FUNCTION__);
+#endif
+}
+
+extern "C" void computeDepthMask_NoVoxelHashing(uint8_t* d_depthMask, float* d_depth, float4* d_normals, unsigned int width, unsigned int height)
+{
+	const dim3 gridSize((width + T_PER_BLOCK - 1)/T_PER_BLOCK, (height + T_PER_BLOCK - 1)/T_PER_BLOCK);
+	const dim3 blockSize(T_PER_BLOCK, T_PER_BLOCK);
+
+	computeDepthMaskDevice_NoVoxelHashing<<<gridSize, blockSize>>>(d_depthMask, d_depth, d_normals, width, height);
 
 #ifdef _DEBUG
 	cutilSafeCall(cudaDeviceSynchronize());

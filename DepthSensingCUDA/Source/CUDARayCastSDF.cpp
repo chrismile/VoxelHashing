@@ -16,7 +16,7 @@ extern "C" void renderCS(
 
 extern "C" void computeNormals(float4* d_output, float4* d_input, unsigned int width, unsigned int height);
 extern "C" void computeDepth4(float4* d_depth4, float* d_depth, const DepthCameraData& cameraData, unsigned int width, unsigned int height);
-extern "C" void computeDepthMask(uint8_t* d_depthMask, float* d_depth, float4* d_normals, unsigned int width, unsigned int height);
+extern "C" void computeDepthMask(uint8_t* d_depthMask, float* d_depth, float4* d_depth4, float4* d_normals, unsigned int width, unsigned int height);
 extern "C" void convertDepthFloatToCameraSpaceFloat4(float4* d_output, float* d_input, float4x4 intrinsicsInv, unsigned int width, unsigned int height, const DepthCameraData& depthCameraData);
 
 extern "C" void resetRayIntervalSplatCUDA(RayCastData& data, const RayCastParams& params);
@@ -66,12 +66,12 @@ void CUDARayCastSDF::render(const HashData& hashData, const HashParams& hashPara
 
 			computeNormals(m_data.d_normals, m_data.d_depth4, m_params.m_width, m_params.m_height);
 			computeNormals(m_data.d_normalsInpainted, m_data.d_depth4Inpainted, m_params.m_width, m_params.m_height);
-			computeDepthMask(m_data.d_depthMask, m_data.d_depthInpainted, m_data.d_normalsInpainted, m_params.m_width, m_params.m_height);
+			computeDepthMask(m_data.d_depthMask, m_data.d_depth, m_data.d_depth4, m_data.d_normalsInpainted, m_params.m_width, m_params.m_height);
 		}
 		else
 		{
 			computeNormals(m_data.d_normals, m_data.d_depth4, m_params.m_width, m_params.m_height);
-			computeDepthMask(m_data.d_depthMask, m_data.d_depth, m_data.d_normals, m_params.m_width, m_params.m_height);
+			computeDepthMask(m_data.d_depthMask, m_data.d_depth, m_data.d_depth4, m_data.d_normals, m_params.m_width, m_params.m_height);
 		}
 	}
 

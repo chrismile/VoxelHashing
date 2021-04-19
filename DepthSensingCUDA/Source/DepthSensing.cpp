@@ -154,6 +154,12 @@ bool CALLBACK ModifyDeviceSettings( DXUTDeviceSettings* pDeviceSettings, void* p
 		}
 	}
 
+	// https://docs.microsoft.com/en-us/windows/win32/direct3ddxgi/dxgi-present
+	//pDeviceSettings->d3d11.PresentFlags = DXGI_PRESENT_RESTART;
+
+	// https://docs.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present
+	//pDeviceSettings->d3d11.SyncInterval = 0;
+
 	return true;
 }
 
@@ -1152,6 +1158,10 @@ std::string removeExtension(const std::string &path)
 	return path;
 }
 
+extern "C" void computeNormals(float4* d_output, float4* d_input, unsigned int width, unsigned int height);
+extern "C" void computeDepth4(float4* d_depth4, float* d_depth, const DepthCameraData& cameraData, unsigned int width, unsigned int height);
+extern "C" void computeDepthMask_NoVoxelHashing(uint8_t* d_depthMask, float* d_depth, float4* d_normals, unsigned int width, unsigned int height);
+
 void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameNumber, bool g_replaySensorData) {
 
 	std::string baseFolder = GlobalAppState::get().s_renderToFileDir;
@@ -1209,8 +1219,6 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 	//for (unsigned int i = std::max(1u, (unsigned int)std::ceilf(std::log10f((float)frameNumber + 1))); i < numCountDigits; i++) ssFrameNumber << "0";
 	ssFrameNumber << frameNumber;
 
-	Util::writeToImage(g_rayCast->getRayCastData().d_depthMask, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), depthMaskDir + ssFrameNumber.str() + ".png");
-
 	mat4f view = mat4f::identity();
 	{	// reconstruction normals
 		bool frameIsValid = true;
@@ -1232,9 +1240,35 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 			frameIsValid = g_replayFramesValid.at(frameNumber);
 		}
 
+		bool normalsManuallyAllocated = false;
 		float4* d_normals;
 		if (!frameIsValid || (!g_replaySensorData && !GlobalAppState::get().s_useTemporalReconstruction && frameNumber == 0)) {
-			d_normals = g_CudaDepthSensor.getNormalMapFloat4();
+			normalsManuallyAllocated = true;
+			//d_normals = g_CudaDepthSensor.getNormalMapFloat4();
+			float* d_filteredDepth = g_CudaDepthSensor.getDepthMapFilteredFloat();
+
+			int width = getRGBDSensor()->getDepthWidth();
+			int height = getRGBDSensor()->getDepthHeight();
+			float* d_inpaintedDepth;
+			float4* d_inpaintedDepth4;
+			uint8_t* d_depthMask;
+			MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_inpaintedDepth, sizeof(float) * width * height));
+			MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_inpaintedDepth4, sizeof(float4) * width * height));
+			MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_normals, sizeof(float4) * width * height));
+			MLIB_CUDA_SAFE_CALL(cudaMalloc(&d_depthMask, sizeof(uint8_t) * width * height));
+
+			CUDAHoleFiller holeFiller;
+			MLIB_CUDA_SAFE_CALL(cudaMemcpy(d_inpaintedDepth, d_filteredDepth, sizeof(float) * width * height, cudaMemcpyDeviceToDevice));
+			holeFiller.holeFill(d_inpaintedDepth, width, height);
+
+			computeDepth4(d_inpaintedDepth4, d_inpaintedDepth, g_CudaDepthSensor.getDepthCameraData(), width, height);
+			computeNormals(d_normals, d_inpaintedDepth4, width, height);
+			computeDepthMask_NoVoxelHashing(d_depthMask, d_filteredDepth, d_normals, width, height);
+			Util::writeToImage(d_depthMask, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), depthMaskDir + ssFrameNumber.str() + ".png");
+
+			MLIB_CUDA_SAFE_CALL(cudaFree(d_inpaintedDepth));
+			MLIB_CUDA_SAFE_CALL(cudaFree(d_inpaintedDepth4));
+			MLIB_CUDA_SAFE_CALL(cudaFree(d_depthMask));
 		}
 		else {
 			if (GlobalAppState::getInstance().s_useDepthMapInpainting) {
@@ -1243,8 +1277,13 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 			else {
 				d_normals = g_rayCast->getRayCastData().d_normals;
 			}
+			Util::writeToImage(g_rayCast->getRayCastData().d_depthMask, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), depthMaskDir + ssFrameNumber.str() + ".png");
 		}
 		Util::writeToNormalImage(d_normals, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), normalsDir + ssFrameNumber.str() + ".png");
+
+		if (normalsManuallyAllocated) {
+			MLIB_CUDA_SAFE_CALL(cudaFree(d_normals));
+		}
 	}
 	/*{	// reconstruction
 		const mat4f& renderIntrinsics = g_RGBDAdapter.getColorIntrinsics();
