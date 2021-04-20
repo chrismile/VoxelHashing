@@ -739,6 +739,32 @@ extern "C" void computeDepth4(float4* d_depth4, float* d_depth, const DepthCamer
 #endif
 }
 
+__global__ void setZeroDepthToMInfDevice(float* d_depth, unsigned int width, unsigned int height)
+{
+	const unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
+	const unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if(x >= width || y >= height) return;
+
+	float depth = d_depth[y*width+x];
+	if (depth <= 0.0f) {
+		d_depth[y*width+x] = MINF;
+	}
+}
+
+extern "C" void setZeroDepthToMInf(float* d_depth, unsigned int width, unsigned int height)
+{
+	const dim3 gridSize((width + T_PER_BLOCK - 1)/T_PER_BLOCK, (height + T_PER_BLOCK - 1)/T_PER_BLOCK);
+	const dim3 blockSize(T_PER_BLOCK, T_PER_BLOCK);
+
+	setZeroDepthToMInfDevice<<<gridSize, blockSize>>>(d_depth, width, height);
+
+#ifdef _DEBUG
+	cutilSafeCall(cudaDeviceSynchronize());
+	cutilCheckMsg(__FUNCTION__);
+#endif
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Compute Depth Mask
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -795,7 +821,7 @@ __global__ void computeDepthMaskDevice_NoVoxelHashing(uint8_t* d_depthMask, floa
 	uint8_t maskValue = 255;
 	float4 normal = d_normals[y*width+x];
     float cosAngle = std::acos(normal.z) / M_PI * 180.0f;
-	if (d_depth[y*width+x] == MINF || normal.x == MINF || cosAngle > 78.0f) {
+	if (d_depth[y*width+x] <= 0.0f || normal.x == MINF || cosAngle > 78.0f) {
 		maskValue = 0;
 	}
 	d_depthMask[y*width+x] = maskValue;

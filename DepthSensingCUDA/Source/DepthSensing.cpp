@@ -664,6 +664,9 @@ static mat4f g_temporalCentralRigidTransform;
 static unsigned int g_temporalCentralFrameCounter = 0;
 static unsigned int g_temporalFrameCounter = 0;
 
+// Depth map at central frame (for GlobalAppState::get().s_useTemporalReconstruction).
+float* gd_centralFrameDepth = nullptr;
+
 void reconstruction()
 {
 
@@ -966,12 +969,12 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 	
 	HRESULT bGotDepth = S_OK;
 	if (!g_replaySensorData) {
-		// if we have received any valid new depth data we may need to draw
-		bGotDepth = g_CudaDepthSensor.process(pd3dImmediateContext);
-
 		// Filtering
 		g_CudaDepthSensor.setFiterDepthValues(GlobalAppState::get().s_depthFilter, GlobalAppState::get().s_depthSigmaD, GlobalAppState::get().s_depthSigmaR);
 		g_CudaDepthSensor.setFiterIntensityValues(GlobalAppState::get().s_colorFilter, GlobalAppState::get().s_colorSigmaD, GlobalAppState::get().s_colorSigmaR);
+
+		// if we have received any valid new depth data we may need to draw
+		bGotDepth = g_CudaDepthSensor.process(pd3dImmediateContext);
 	}
 
 	HRESULT hr = S_OK;
@@ -1113,6 +1116,10 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 		g_temporalCentralRigidTransform = g_sceneRep->getLastRigidTransform();
 	}
 	if (GlobalAppState::get().s_useTemporalReconstruction && g_temporalFrameCounter == g_temporalCentralFrameCounter && GlobalAppState::get().s_renderToFile) {
+		if (GlobalAppState::get().s_useTemporalReconstruction && gd_centralFrameDepth == nullptr) {
+			MLIB_CUDA_SAFE_CALL(cudaMalloc(&gd_centralFrameDepth, sizeof(float) * g_CudaDepthSensor.getDepthWidth() * g_CudaDepthSensor.getDepthHeight()));
+		}
+		MLIB_CUDA_SAFE_CALL(cudaMemcpy(gd_centralFrameDepth, g_CudaDepthSensor.getDepthMapFilteredFloat(), sizeof(float) * g_CudaDepthSensor.getDepthWidth() * g_CudaDepthSensor.getDepthHeight(), cudaMemcpyDeviceToDevice));
 		saveColorImage(pd3dImmediateContext, g_temporalCentralFrameCounter);
 	}
 	if (GlobalAppState::get().s_useTemporalReconstruction && (int)g_temporalFrameCounter - (int)g_temporalCentralFrameCounter == (int)GlobalAppState::get().s_halfNumTemporalFrames && GlobalAppState::get().s_renderToFile) {
@@ -1158,6 +1165,7 @@ std::string removeExtension(const std::string &path)
 	return path;
 }
 
+extern "C" void setZeroDepthToMInf(float* d_depth, unsigned int width, unsigned int height);
 extern "C" void computeNormals(float4* d_output, float4* d_input, unsigned int width, unsigned int height);
 extern "C" void computeDepth4(float4* d_depth4, float* d_depth, const DepthCameraData& cameraData, unsigned int width, unsigned int height);
 extern "C" void computeDepthMask_NoVoxelHashing(uint8_t* d_depthMask, float* d_depth, float4* d_normals, unsigned int width, unsigned int height);
@@ -1245,7 +1253,7 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 		if (!frameIsValid || (!g_replaySensorData && !GlobalAppState::get().s_useTemporalReconstruction && frameNumber == 0)) {
 			normalsManuallyAllocated = true;
 			//d_normals = g_CudaDepthSensor.getNormalMapFloat4();
-			float* d_filteredDepth = g_CudaDepthSensor.getDepthMapFilteredFloat();
+			float* d_filteredDepth = gd_centralFrameDepth;// g_CudaDepthSensor.getDepthMapFilteredFloat();
 
 			int width = getRGBDSensor()->getDepthWidth();
 			int height = getRGBDSensor()->getDepthHeight();
@@ -1259,6 +1267,7 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 
 			CUDAHoleFiller holeFiller;
 			MLIB_CUDA_SAFE_CALL(cudaMemcpy(d_inpaintedDepth, d_filteredDepth, sizeof(float) * width * height, cudaMemcpyDeviceToDevice));
+			setZeroDepthToMInf(d_inpaintedDepth, width, height);
 			holeFiller.holeFill(d_inpaintedDepth, width, height);
 
 			computeDepth4(d_inpaintedDepth4, d_inpaintedDepth, g_CudaDepthSensor.getDepthCameraData(), width, height);
@@ -1520,6 +1529,11 @@ int main(int argc, char** argv)
 	{
 		MessageBoxA(NULL, "UNKNOWN EXCEPTION", "Exception caught", MB_ICONERROR);
 		exit(EXIT_FAILURE);
+	}
+
+	if (GlobalAppState::get().s_useTemporalReconstruction && gd_centralFrameDepth != nullptr) {
+		MLIB_CUDA_SAFE_CALL(cudaFree(gd_centralFrameDepth));
+		gd_centralFrameDepth = nullptr;
 	}
 
 	//this is a bit of a hack due to a bug in std::thread (a static object cannot join if the main thread exists)

@@ -11,7 +11,7 @@ s_adapterHeight = 480;		//input depth gets re-sampled to this height (decrease t
 //s_adapterWidth = 1296;		//this really hits perf (ray cast)
 //s_adapterHeight = 968;		//this really hits perf (ray cast)
 
-s_sensorDepthMax = 5.0f;	//maximum sensor depth in meter
+s_sensorDepthMax = 5.5f;	//maximum sensor depth in meter
 s_sensorDepthMin = 0.1f;	//minimum sensor depth in meter
 
 // cropping options for PrimeSense & Asus Xtion Pro
@@ -26,7 +26,7 @@ s_SDFVoxelSize = 0.004f;				//voxel size in meter (IMPORTANT: reduces to improve
 s_SDFMarchingCubeThreshFactor = 10.0f;	//marching cube thresh: s_SDFMarchingCubeThresh = s_SDFMarchingCubeThreshFactor*s_SDFVoxelSize
 s_SDFTruncation = 0.02f;				//truncation in meter
 s_SDFTruncationScale = 0.01f;			//truncation scale in meter per meter
-s_SDFMaxIntegrationDistance = 4.0f;		//maximum integration in meter
+s_SDFMaxIntegrationDistance = 5.0f;		//maximum integration in meter
 s_SDFIntegrationWeightSample = 10;		//weight for an integrated depth value
 s_SDFIntegrationWeightMax = 255;		//maximum integration weight for a voxel
 // s_SDFBlockSize is pound defined (SDF_BLOCK_SIZE)
@@ -46,6 +46,7 @@ s_SDFUseGradients 		= false;		//analytic gradients for rendering
 s_binaryDumpSensorFile[0] = "C:\Users\chris\Programming\DL\relight_aug\datasets\ScanNet\tmp\scans\scene0007_00\scene0007_00.sens";
 //s_binaryDumpSensorFile[0] = "C:\Users\chris\Programming\DL\relight_aug\datasets\ScanNet\tmp\scans\scene0528_00\scene0528_00.sens";
 //s_binaryDumpSensorFile[1] = "C:\Users\chris\Programming\DL\relight_aug\datasets\ScanNet\tmp\scans\scene0007_00\scene0007_00.sens";
+s_binaryDumpSensorFile[1] = "C:\Users\chris\Programming\DL\relight_aug\datasets\ScanNet\tmp\scans\scene0528_00\scene0528_00.sens";
 
 s_binaryDumpSensorUseTrajectory = true;
 s_binaryDumpSensorUseTrajectoryOnlyInit = false;	//only valid if prev is true; precomputed traj for ICP, which is run
@@ -111,7 +112,7 @@ s_renderToFileDir = "./scans/";
 s_offlineProcessing = false;			//slower, but makes sure that all voxels are alllocated and streaming all blocks is enforced
 s_useSensorReplay = false;
 s_useTemporalReconstruction = true;
-s_halfNumTemporalFrames = 10;
+s_halfNumTemporalFrames = 20;
 
 s_shutdownAtEnd = true;
 s_useDepthMapInpainting = true;
