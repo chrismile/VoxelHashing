@@ -38,8 +38,6 @@ cd C:/Users/ga42wis/Programming/C++/VoxelHashing/DepthSensingCUDA
 
 scenes=`ls $dataset_folder`
 
-exit 1
-
 i=1
 for scene_name in $scenes
 do
@@ -51,14 +49,14 @@ do
     base_dir="$output_folder/${scene_name}"
     path_sens="$dataset_folder/$scene_name/$scene_name.sens"
     
-    mkdir "${base_dir}"
+    if [ ! -d "$base_dir" ]; then
+        mkdir "${base_dir}"
+    fi
+	
+    cp $template_conf $config_file
+    sed -i "s|path_sens|$path_sens|g" "$config_file"
     
-    #cp $template_conf $config_file
-    #sed -i 's/path_sens/$path_sens/' filename
+    unzip "${dataset_folder}/$scene_name/${scene_name}_2d-label-filt.zip" -d "${base_dir}"
     
-    #unzip "${dataset_folder}/$scene_name/${scene_name}_2d-label-filt.zip" -d "${base_dir}"
-    
-    #./x64/Release/DepthSensing.exe $config_file $tracking_conf
-    
-    exit 1
+    ./x64/Release/DepthSensing.exe $config_file $tracking_conf
 done
