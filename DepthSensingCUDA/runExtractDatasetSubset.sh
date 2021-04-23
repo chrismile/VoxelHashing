@@ -119,9 +119,6 @@ do
     if [ ! -d "$base_dir" ]; then
         mkdir "${base_dir}"
     fi
-    if [ ! -d "$base_dir/label-filt" ]; then
-        unzip "${scans_folder}/$scene_name/${scene_name}_2d-label-filt.zip" -d "${base_dir}"
-    fi
     ./x64/Release/DepthSensing.exe $config_file $tracking_conf
 
     # Set up the output folder.
@@ -158,6 +155,9 @@ do
             fi
             i=$((i+1))
         done
+
+        unzip "${scans_folder}/$scene_name/${scene_name}_2d-label-filt.zip" "label-filt/${orig_idx}.png" -d "${base_dir}"
+        
         cp "$output_folder_tmp/$scene_name/color/${orig_idx}.jpg" "$output_folder/color/${idx}.jpg"
         cp "$output_folder_tmp/$scene_name/label-filt/${orig_idx}.png" "$output_folder/label-filt/${idx}.png"
         cp "$output_folder_tmp/$scene_name/normal/${orig_idx}.png" "$output_folder/normal/${idx}.png"
