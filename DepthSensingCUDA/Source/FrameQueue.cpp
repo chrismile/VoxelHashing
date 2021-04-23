@@ -28,9 +28,9 @@
 
 #include "stdafx.h"
 
-#include "CircularQueue.h"
+#include "FrameQueue.h"
 
-CircularQueue::CircularQueue(size_t maxCapacity) {
+FrameQueue::FrameQueue(size_t maxCapacity) {
 	startPointer = 0;
 	endPointer = 0;
 	queueCapacity = maxCapacity;
@@ -42,11 +42,11 @@ CircularQueue::CircularQueue(size_t maxCapacity) {
 		queueData = nullptr;
 	}
 }
-CircularQueue::~CircularQueue() {
+FrameQueue::~FrameQueue() {
 	delete[] queueData;
 }
 
-void CircularQueue::enqueue(const ml::RGBDFrameCacheRead::FrameState& data) {
+void FrameQueue::enqueue(const ml::RGBDFrameCacheRead::FrameState& data) {
 	if (queueSize == queueCapacity) {
 		resize(queueCapacity == 0 ? 4 : queueCapacity * 2);
 	}
@@ -56,7 +56,7 @@ void CircularQueue::enqueue(const ml::RGBDFrameCacheRead::FrameState& data) {
 	queueSize++;
 }
 
-ml::RGBDFrameCacheRead::FrameState CircularQueue::popFront() {
+ml::RGBDFrameCacheRead::FrameState FrameQueue::popFront() {
 	assert(queueSize > 0);
 	ml::RGBDFrameCacheRead::FrameState data = queueData[startPointer];
 	startPointer = (startPointer + 1) % queueCapacity;
@@ -64,14 +64,14 @@ ml::RGBDFrameCacheRead::FrameState CircularQueue::popFront() {
 	return data;
 }
 
-ml::RGBDFrameCacheRead::FrameState CircularQueue::at(size_t index) {
+ml::RGBDFrameCacheRead::FrameState FrameQueue::at(size_t index) {
 	if (index < 0 ||index >= queueSize) {
-		throw std::runtime_error("Error in CircularQueue::at: Index out of range.");
+		throw std::runtime_error("Error in FrameQueue::at: Index out of range.");
 	}
 	return queueData[(index + startPointer) % queueCapacity];
 }
 
-void CircularQueue::resize(size_t newCapacity) {
+void FrameQueue::resize(size_t newCapacity) {
 	// Copy data to larger array.
 	ml::RGBDFrameCacheRead::FrameState *newData = new ml::RGBDFrameCacheRead::FrameState[newCapacity];
 	int readIdx = (int)startPointer;

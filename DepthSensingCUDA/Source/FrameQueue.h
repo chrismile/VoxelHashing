@@ -26,83 +26,28 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "sensorData/sensorData.h"
+
 #pragma once
 
-template<class T>
-class CircularQueue
+class FrameQueue
 {
 public:
-	CircularQueue(size_t maxCapacity = 32){
-		startPointer = 0;
-		endPointer = 0;
-		queueCapacity = maxCapacity;
-		queueSize = 0;
-		if (maxCapacity != 0) {
-			queueData = new T[queueCapacity];
-		}
-		else {
-			queueData = nullptr;
-		}
-	}
+	FrameQueue(size_t maxCapacity = 32);
+	~FrameQueue();
 
-	~CircularQueue() {
-		delete[] queueData;
-	}
-
-	void enqueue(const T& data) {
-		if (queueSize == queueCapacity) {
-			resize(queueCapacity == 0 ? 4 : queueCapacity * 2);
-		}
-
-		queueData[endPointer] = data;
-		endPointer = (endPointer + 1) % queueCapacity;
-		queueSize++;
-	}
-
-	T popFront() {
-		assert(queueSize > 0);
-		T data = queueData[startPointer];
-		startPointer = (startPointer + 1) % queueCapacity;
-		queueSize--;
-		return data;
-	}
-
-	T at(size_t index) {
-		if (index < 0 || index >= queueSize) {
-			throw std::runtime_error("Error in CircularQueue::at: Index out of range.");
-		}
-		return queueData[(index + startPointer) % queueCapacity];
-	}
+	void enqueue(const ml::RGBDFrameCacheRead::FrameState& data);
+	ml::RGBDFrameCacheRead::FrameState popFront();
+	ml::RGBDFrameCacheRead::FrameState at(size_t index);
 
 	inline size_t isEmpty() { return queueSize == 0; }
 	inline size_t getSize() { return queueSize; }
 	inline size_t getCapacity() { return queueCapacity; }
 
-	void resize(size_t newCapacity) {
-		// Copy data to larger array.
-		T *newData = new T[newCapacity];
-		int readIdx = (int)startPointer;
-		int writeIdx = 0;
-		for (int i = 0; i < queueSize; i++) {
-			newData[writeIdx] = queueData[readIdx];
-			readIdx = (readIdx + 1) % queueCapacity;
-			writeIdx++;
-		}
-
-		// Reset the pointers.
-		startPointer = 0;
-		endPointer = queueSize;
-		queueCapacity = newCapacity;
-
-		// Delete the old data and copy the new data.
-		if (queueData) {
-			delete[] queueData;
-		}
-		queueData = newData;
-	}
+	void resize(size_t newCapacity);
 
 private:
-	T *queueData;
+	ml::RGBDFrameCacheRead::FrameState *queueData;
 	size_t startPointer, endPointer;
 	size_t queueCapacity;
 	size_t queueSize;

@@ -7,7 +7,7 @@
 
 #ifdef SENSOR_DATA_READER
 
-#include "CircularQueue.h"
+#include "FrameQueue.h"
 #include "sensorData/sensorData.h"
 
 #include <algorithm>
@@ -30,7 +30,7 @@ SensorDataReader::SensorDataReader()
 	m_sensorDataCache = NULL;
 
 	if (GlobalAppState::get().s_useTemporalReconstruction) {
-		m_frameQueue = new CircularQueue(2 * GlobalAppState::get().s_halfNumTemporalFrames + 1);
+		m_frameQueue = new FrameQueue(2 * GlobalAppState::get().s_halfNumTemporalFrames + 1);
 	}
 
 	m_currSensFileIdx = 0;

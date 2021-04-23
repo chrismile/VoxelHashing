@@ -167,7 +167,8 @@
     <ClCompile Include="Source\StructureSensor.cpp">
       <Filter>Sensors</Filter>
     </ClCompile>
-    <ClCompile Include="Source\CircularQueue.cpp" />
+    <ClCompile Include="Source\FrameQueue.cpp" />
+    <ClCompile Include="Source\FrameCache.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\CameraParams.h" />
@@ -335,6 +336,8 @@
       <Filter>CUDA</Filter>
     </ClInclude>
     <ClInclude Include="Source\CircularQueue.h" />
+    <ClInclude Include="Source\FrameQueue.h" />
+    <ClInclude Include="Source\FrameCache.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\QuadDrawer.hlsl">

@@ -130,7 +130,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\BinaryDumpReader.cpp" />
-    <ClCompile Include="Source\CircularQueue.cpp" />
     <ClCompile Include="Source\CUDABuildLinearSystem.cpp" />
     <ClCompile Include="Source\CUDABuildLinearSystemRGBD.cpp" />
     <ClCompile Include="Source\CUDACameraTrackingMultiRes.cpp" />
@@ -192,6 +191,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Source\FrameCache.cpp" />
+    <ClCompile Include="Source\FrameQueue.cpp" />
     <ClCompile Include="Source\GlobalAppState.cpp" />
     <ClCompile Include="Source\GlobalCameraTrackingState.cpp" />
     <ClCompile Include="Source\ICPErrorLog.cpp" />
@@ -253,6 +254,8 @@
     <ClInclude Include="Source\DXUT\Optional\SDKmesh.h" />
     <ClInclude Include="Source\DXUT\Optional\SDKmisc.h" />
     <ClInclude Include="Source\Eigen.h" />
+    <ClInclude Include="Source\FrameCache.h" />
+    <ClInclude Include="Source\FrameQueue.h" />
     <ClInclude Include="Source\GlobalAppState.h" />
     <ClInclude Include="Source\GlobalCameraTrackingState.h" />
     <ClInclude Include="Source\ICPErrorLog.h" />

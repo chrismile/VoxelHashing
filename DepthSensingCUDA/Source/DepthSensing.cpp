@@ -665,7 +665,11 @@ static unsigned int g_temporalCentralFrameCounter = 0;
 static unsigned int g_temporalFrameCounter = 0;
 
 // Depth map at central frame (for GlobalAppState::get().s_useTemporalReconstruction).
-float* gd_centralFrameDepth = nullptr;
+static float* gd_centralFrameDepth = nullptr;
+
+// Which frames to process (for GlobalAppState::get().s_processSubset).
+static std::vector<unsigned int> g_frameSubsetIndices;
+static unsigned int g_subsetFrameCounter = 0;
 
 void reconstruction()
 {
@@ -881,6 +885,16 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 	pd3dImmediateContext->ClearDepthStencilView(pDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
 #ifdef SENSOR_DATA_READER
+	if (g_frameSubsetIndices.empty() && GlobalAppState::get().s_processSubset) {
+		std::stringstream stream(GlobalAppState::get().s_subsetIdxString);
+		unsigned int idx;
+		while (stream >> idx) {
+			g_frameSubsetIndices.push_back(idx);
+		}
+		g_temporalCentralFrameCounter = g_frameSubsetIndices.at(g_subsetFrameCounter);
+		g_temporalFrameCounter = (unsigned int)std::max(0, (int)g_temporalCentralFrameCounter - (int)GlobalAppState::get().s_halfNumTemporalFrames);
+	}
+
 	//only if sensor data reader
 	if (GlobalAppState::get().s_sensorIdx == GlobalAppState::Sensor_SensorDataReader && GlobalAppState::get().s_playData && !GlobalAppState::get().s_useTemporalReconstruction) {
 		SensorDataReader* sensor = (SensorDataReader*)getRGBDSensor();
@@ -919,7 +933,18 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 		SensorDataReader* sensor = (SensorDataReader*)getRGBDSensor();
 
 		if ((int)g_temporalFrameCounter - (int)g_temporalCentralFrameCounter > (int)GlobalAppState::get().s_halfNumTemporalFrames || g_temporalFrameCounter >= sensor->getNumFrames()) {
-			g_temporalCentralFrameCounter++;
+			if (GlobalAppState::get().s_processSubset) {
+				g_subsetFrameCounter++;
+				if (g_subsetFrameCounter == g_frameSubsetIndices.size()) {
+					g_temporalCentralFrameCounter = sensor->getNumFrames();
+				}
+				else {
+					g_temporalCentralFrameCounter = g_frameSubsetIndices.at(g_subsetFrameCounter);
+				}
+			}
+			else {
+				g_temporalCentralFrameCounter++;
+			}
 			g_temporalFrameCounter = (unsigned int)std::max(0, (int)g_temporalCentralFrameCounter - (int)GlobalAppState::get().s_halfNumTemporalFrames);
 			if (g_temporalCentralFrameCounter < sensor->getNumFrames()) {
 				sensor->setCurrFrame(g_temporalFrameCounter);
@@ -931,8 +956,15 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 			g_replayTrajectory.resize(sensor->getNumFrames(), mat4f::zero());
 			g_replayFramesValid.resize(sensor->getNumFrames(), false);
 			g_replayFrameNumber = 0;
-			g_temporalCentralFrameCounter = 0;
-			g_temporalFrameCounter = 0;
+			if (GlobalAppState::get().s_processSubset) {
+				g_subsetFrameCounter = 0;
+				g_temporalCentralFrameCounter = g_frameSubsetIndices.at(g_subsetFrameCounter);
+				g_temporalFrameCounter = (unsigned int)std::max(0, (int)g_temporalCentralFrameCounter - (int)GlobalAppState::get().s_halfNumTemporalFrames);
+			}
+			else {
+				g_temporalCentralFrameCounter = 0;
+				g_temporalFrameCounter = 0;
+			}
 			sensor->loadNextSensFile();
 			sensor->setCurrFrame(g_temporalFrameCounter);
 

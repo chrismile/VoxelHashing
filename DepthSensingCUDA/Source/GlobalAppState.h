@@ -102,7 +102,9 @@
     X(bool, s_useTemporalReconstruction) \
 	X(unsigned int, s_halfNumTemporalFrames) \
 	X(bool, s_shutdownAtEnd) \
-	X(bool, s_useDepthMapInpainting)
+	X(bool, s_useDepthMapInpainting) \
+	X(bool, s_processSubset) \
+	X(std::string, s_subsetIdxString)
 
 
 #ifndef VAR_NAME
