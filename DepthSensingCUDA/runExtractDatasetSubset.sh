@@ -26,8 +26,12 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#dataset_folder="D:/neuhauser/datasets/ScanNet/raw/scans"
-dataset_folder="/home/christoph/Programming/DL/relight_aug/datasets/ScanNet"
+# Adapt these paths
+dataset_folder="D:/neuhauser/datasets/ScanNet/raw/scans"
+depth_sensing_cuda_folder="D:/neuhauser/datasets/ScanNet/raw/scans"
+#dataset_folder="/home/christoph/Programming/DL/relight_aug/datasets/ScanNet"
+#depth_sensing_cuda_folder="/home/christoph/Programming/C++/VoxelHashing/DepthSensingCUDA"
+
 template_conf="${dataset_folder}/zParametersSens_template.txt"
 config_file="${dataset_folder}/zParametersSens.txt"
 tracking_conf="${dataset_folder}/zParametersTrackingDefault.txt"
@@ -42,7 +46,7 @@ output_folder_val="${dataset_folder}/scans_VoxelHashing_val"
 
 export PATH=$PATH:"/c/Users/ga42wis/Programming/C++/VoxelHashing/DepthSensingCUDA/x64/Release/"
 export PATH=$PATH:"/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v7.5/bin/"
-#cd C:/Users/ga42wis/Programming/C++/VoxelHashing/DepthSensingCUDA
+cd "$depth_sensing_cuda_folder"
 
 scenes=`ls $scans_folder`
 readarray -t scenes_train < $scenes_list_filename_train
@@ -100,16 +104,32 @@ do
     if [ ! -d "$base_dir" ]; then
         mkdir "${base_dir}"
     fi
-    unzip "${scans_folder}/$scene_name/${scene_name}_2d-label-filt.zip" -d "${base_dir}"
+    if [ ! -d "$base_dir/label-filt" ]; then
+        unzip "${scans_folder}/$scene_name/${scene_name}_2d-label-filt.zip" -d "${base_dir}"
+    fi
     ./x64/Release/DepthSensing.exe $config_file $tracking_conf
 
-    # Copy files to correct directory.
+    # Set up the output folder.
     if [[ " ${scenes_train[@]} " =~ " ${scene_name} " ]]; then
         output_folder="$output_folder_train"
     fi
     if [[ " ${scenes_val[@]} " =~ " ${scene_name} " ]]; then
         output_folder="$output_folder_val"
     fi
+    if [ ! -d "$output_folder/color" ]; then
+        mkdir "$output_folder/color"
+    fi
+    if [ ! -d "$output_folder/label-filt" ]; then
+        mkdir "$output_folder/label-filt"
+    fi
+    if [ ! -d "$output_folder/normal" ]; then
+        mkdir "$output_folder/normal"
+    fi
+    if [ ! -d "$output_folder/mask" ]; then
+        mkdir "$output_folder/mask"
+    fi
+
+    # Copy files to correct directory.
     while read line
     do
         i=0
