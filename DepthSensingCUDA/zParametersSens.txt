@@ -116,3 +116,6 @@ s_halfNumTemporalFrames = 20;
 
 s_shutdownAtEnd = true;
 s_useDepthMapInpainting = true;
+
+s_processSubset = true;
+s_subsetIdxString = "22 33 97 103 111 177 200 307";
