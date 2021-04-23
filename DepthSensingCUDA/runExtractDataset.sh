@@ -41,7 +41,7 @@ scenes=`ls $dataset_folder`
 i=1
 for scene_name in $scenes
 do
-    if [ -f "$config_file" ] && [ ! -d "tmp/scans_test/${scene_name}" ]; then
+    if [ -f "$config_file" ]; then
         rm $config_file
     fi
     
