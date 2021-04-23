@@ -26,17 +26,25 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-template_conf="D:/neuhauser/datasets/ScanNet/zParametersSens_template.txt"
-config_file="D:/neuhauser/datasets/ScanNet/zParametersSens.txt"
-tracking_conf="D:/neuhauser/datasets/ScanNet/zParametersTrackingDefault.txt"
-dataset_folder="D:/neuhauser/datasets/ScanNet/raw/scans"
-output_folder="D:/neuhauser/datasets/ScanNet/scans_VoxelHashing"
-
+# Adapt these paths for your system.
+#dataset_folder="D:/neuhauser/datasets/ScanNet"
+#depth_sensing_cuda_folder="C:/Users/neuhauser/Programming/C++/VoxelHashing/DepthSensingCUDA"
+dataset_folder="C:/Users/chris/Programming/DL/relight_aug/datasets/ScanNet"
+depth_sensing_cuda_folder="C:/Users/chris/Programming/C++/VoxelHashing/DepthSensingCUDA"
+#dataset_folder="/home/christoph/Programming/DL/relight_aug/datasets/ScanNet"
+#depth_sensing_cuda_folder="/home/christoph/Programming/C++/VoxelHashing/DepthSensingCUDA"
 export PATH=$PATH:"/c/Users/ga42wis/Programming/C++/VoxelHashing/DepthSensingCUDA/x64/Release/"
 export PATH=$PATH:"/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v7.5/bin/"
-cd C:/Users/ga42wis/Programming/C++/VoxelHashing/DepthSensingCUDA
 
-scenes=`ls $dataset_folder`
+template_conf="$dataset_folder/zParametersSens_template.txt"
+config_file="$dataset_folder/zParametersSens.txt"
+tracking_conf="$dataset_folder/zParametersTrackingDefault.txt"
+scans_folder="$dataset_folder/raw/scans"
+output_folder="$dataset_folder/scans_VoxelHashing"
+
+cd "$depth_sensing_cuda_folder"
+
+scenes=`ls $scans_folder`
 
 i=1
 for scene_name in $scenes
@@ -47,7 +55,7 @@ do
     
     echo "Processing ${scene_name}..."
     base_dir="$output_folder/${scene_name}"
-    path_sens="$dataset_folder/$scene_name/$scene_name.sens"
+    path_sens="$scans_folder/$scene_name/$scene_name.sens"
     
     if [ ! -d "$base_dir" ]; then
         mkdir "${base_dir}"
@@ -55,8 +63,11 @@ do
 	
     cp $template_conf $config_file
     sed -i "s|path_sens|$path_sens|g" "$config_file"
+    sed -i "s|output_folder_tmp|$output_folder|g" "$config_file"
+    sed -i "s|shall_process_subset|false|g" "$config_file"
     
-    unzip "${dataset_folder}/$scene_name/${scene_name}_2d-label-filt.zip" -d "${base_dir}"
+    unzip "${scans_folder}/$scene_name/${scene_name}_2d-label-filt.zip" -d "${base_dir}"
     
     ./x64/Release/DepthSensing.exe $config_file $tracking_conf
+    mogrify -resize 640x480 "$output_folder/color/${idx}.jpg"
 done

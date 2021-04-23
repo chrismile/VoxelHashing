@@ -59,6 +59,18 @@ public:
 		queueSize++;
 	}
 
+	size_t enqueueAbsolute(const T& data) {
+		if (queueSize == queueCapacity) {
+			resize(queueCapacity == 0 ? 4 : queueCapacity * 2);
+		}
+
+		size_t insertPos = endPointer;
+		queueData[insertPos] = data;
+		endPointer = (endPointer + 1) % queueCapacity;
+		queueSize++;
+		return insertPos;
+	}
+
 	T popFront() {
 		assert(queueSize > 0);
 		T data = queueData[startPointer];
@@ -72,6 +84,13 @@ public:
 			throw std::runtime_error("Error in CircularQueue::at: Index out of range.");
 		}
 		return queueData[(index + startPointer) % queueCapacity];
+	}
+
+	T atAbsolute(size_t index) {
+		if (index < 0 || index >= queueSize) {
+			throw std::runtime_error("Error in CircularQueue::at: Index out of range.");
+		}
+		return queueData[index];
 	}
 
 	inline size_t isEmpty() { return queueSize == 0; }

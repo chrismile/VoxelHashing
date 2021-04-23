@@ -46,7 +46,7 @@ bool FrameCache::isCached(unsigned int frameIdx) {
 
 ml::RGBDFrameCacheRead::FrameState FrameCache::getFromCache(unsigned int frameIdx) {
 	assert(isCached(frameIdx));
-	return cache.at(frameCacheIndexMap.at(frameIdx)).second;
+	return cache.atAbsolute(frameCacheIndexMap.at(frameIdx)).second;
 }
 
 void FrameCache::storeInCache(unsigned int frameIdx, ml::RGBDFrameCacheRead::FrameState frameData) {
@@ -57,6 +57,5 @@ void FrameCache::storeInCache(unsigned int frameIdx, ml::RGBDFrameCacheRead::Fra
 		frameCacheIndexMap.at(cachedData.first) = std::numeric_limits<unsigned int>::max();
 		cachedData.second.free();
 	}
-	cache.enqueue(std::make_pair(frameIdx, frameData));
-	frameCacheIndexMap.at(frameIdx) = static_cast<unsigned int>(cache.getSize() - 1);
+	frameCacheIndexMap.at(frameIdx) = static_cast<unsigned int>(cache.enqueueAbsolute(std::make_pair(frameIdx, frameData)));
 }

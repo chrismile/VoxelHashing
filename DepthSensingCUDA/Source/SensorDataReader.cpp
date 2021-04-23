@@ -8,6 +8,7 @@
 #ifdef SENSOR_DATA_READER
 
 #include "FrameQueue.h"
+#include "FrameCache.h"
 #include "sensorData/sensorData.h"
 
 #include <algorithm>
@@ -29,7 +30,7 @@ SensorDataReader::SensorDataReader()
 	m_sensorData = NULL;
 	m_sensorDataCache = NULL;
 
-	if (GlobalAppState::get().s_useTemporalReconstruction) {
+	if (GlobalAppState::get().s_useTemporalReconstruction && !GlobalAppState::get().s_processSubset) {
 		m_frameQueue = new FrameQueue(2 * GlobalAppState::get().s_halfNumTemporalFrames + 1);
 	}
 
@@ -40,7 +41,7 @@ SensorDataReader::~SensorDataReader()
 {
 	releaseData();
 
-	if (GlobalAppState::get().s_useTemporalReconstruction) {
+	if (GlobalAppState::get().s_useTemporalReconstruction && !GlobalAppState::get().s_processSubset) {
 		while (!m_frameQueue->isEmpty()) {
 			m_frameQueue->popFront().free();
 		}
@@ -85,6 +86,10 @@ HRESULT SensorDataReader::createFirstConnected()
 		m_bHasColorData = false;
 	}
 
+	if (GlobalAppState::get().s_processSubset && m_numFrames > 0) {
+		m_frameCache = new FrameCache(m_numFrames, 2 * GlobalAppState::get().s_halfNumTemporalFrames + 1);
+	}
+
 	const unsigned int cacheSize = 10;
 	m_sensorDataCache = new RGBDFrameCacheRead(m_sensorData, cacheSize);
 
@@ -93,11 +98,14 @@ HRESULT SensorDataReader::createFirstConnected()
 
 void SensorDataReader::setCurrFrame(unsigned int currFrame) {
 	// Assumes that we only advance the frame start index one by one.
-	if (GlobalAppState::get().s_useTemporalReconstruction) {
+	if (GlobalAppState::get().s_useTemporalReconstruction && !GlobalAppState::get().s_processSubset) {
 		if (m_queueStartIdx != currFrame && !m_frameQueue->isEmpty()) {
 			m_frameQueue->popFront().free();
 		}
 	}
+	//if (GlobalAppState::get().s_processSubset) {
+	//	m_sensorDataCache->setCurrFrame(currFrame);
+	//}
 	m_queueStartIdx = currFrame;
 	m_currFrame = currFrame;
 }
@@ -106,12 +114,13 @@ void SensorDataReader::loadNextSensFile() {
 	if (!GlobalAppState::get().s_playData) return;
 
 	// Clear all entries in the frame queue.
-	if (GlobalAppState::get().s_useTemporalReconstruction) {
+	if (GlobalAppState::get().s_useTemporalReconstruction && !GlobalAppState::get().s_processSubset) {
 		while (!m_frameQueue->isEmpty()) {
 			m_frameQueue->popFront().free();
 		}
 		m_queueStartIdx = 0;
 	}
+	m_sensorDataCacheCurrFrame = 0;
 
 	if (m_currFrame >= m_numFrames)	{
 		std::cout << "Loading new sens file!" << std::endl;
@@ -127,7 +136,9 @@ void SensorDataReader::loadNextSensFile() {
 			m_currFrame = 0;
 		}
 	}
-
+	else if (GlobalAppState::get().s_processSubset) {
+		GlobalAppState::get().s_playData = false;
+	}
 }
 
 HRESULT SensorDataReader::processDepth()
@@ -152,7 +163,7 @@ HRESULT SensorDataReader::processDepth()
 		//memcpy(depth, m_data.m_DepthImages[m_currFrame], sizeof(float)*getDepthWidth()*getDepthHeight());
 
 		ml::RGBDFrameCacheRead::FrameState frameState;
-		if (GlobalAppState::get().s_useTemporalReconstruction) {
+		if (GlobalAppState::get().s_useTemporalReconstruction && !GlobalAppState::get().s_processSubset) {
 			unsigned int relativeIdx = m_currFrame - m_queueStartIdx;
 			if (relativeIdx < m_frameQueue->getSize()) {
 				frameState = m_frameQueue->at(m_currFrame - m_queueStartIdx);
@@ -161,6 +172,20 @@ HRESULT SensorDataReader::processDepth()
 				frameState = m_sensorDataCache->getNext();
 				m_frameQueue->enqueue(frameState);
 			}
+		}
+		else if (GlobalAppState::get().s_processSubset) {
+			if (!m_frameCache->isCached(m_currFrame)) {
+				if (m_sensorDataCacheCurrFrame > m_currFrame) {
+					throw std::runtime_error("Error in SensorDataReader::processDepth: m_sensorDataCacheCurrFrame > m_currFrame");
+				}
+				while (m_sensorDataCacheCurrFrame < m_currFrame) {
+					m_sensorDataCache->getNext().free();
+					m_sensorDataCacheCurrFrame++;
+				}
+				m_frameCache->storeInCache(m_currFrame, m_sensorDataCache->getNext());
+				m_sensorDataCacheCurrFrame++;
+			}
+			frameState = m_frameCache->getFromCache(m_currFrame);
 		}
 		else {
 			frameState = m_sensorDataCache->getNext();
@@ -195,7 +220,7 @@ HRESULT SensorDataReader::processDepth()
 				m_colorRGBX[i] = vec4uc(frameState.m_colorFrame[i]);
 			}
 		}
-		if (!GlobalAppState::get().s_useTemporalReconstruction) {
+		if (!GlobalAppState::get().s_useTemporalReconstruction && !GlobalAppState::get().s_processSubset) {
 			frameState.free();
 		}
 
@@ -231,11 +256,17 @@ void SensorDataReader::releaseData()
 	m_currFrame = 0;
 	m_bHasColorData = false;
 
-	 
-	SAFE_DELETE(m_sensorDataCache);
-	if (m_sensorData) {
-		m_sensorData->free();
-		SAFE_DELETE(m_sensorData);
+	if (GlobalAppState::get().s_processSubset && m_frameCache) {
+		SAFE_DELETE(m_sensorDataCache);
+		delete m_frameCache;
+		m_frameCache = nullptr;
+	}
+	else {
+		SAFE_DELETE(m_sensorDataCache);
+		if (m_sensorData) {
+			m_sensorData->free();
+			SAFE_DELETE(m_sensorData);
+		}
 	}
 }
 

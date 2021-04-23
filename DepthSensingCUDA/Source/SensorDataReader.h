@@ -17,6 +17,7 @@ namespace ml {
 }
 
 class FrameQueue;
+class FrameCache;
 
 class SensorDataReader : public RGBDSensor
 {
@@ -65,8 +66,10 @@ private:
 
 	ml::SensorData* m_sensorData;
 	ml::RGBDFrameCacheRead* m_sensorDataCache;
-	FrameQueue*  m_frameQueue = nullptr; ///< if GlobalAppState::get().s_useTemporalReconstruction
-	unsigned int    m_queueStartIdx = 0; ///< if GlobalAppState::get().s_useTemporalReconstruction
+	FrameQueue*     m_frameQueue = nullptr; ///< if GlobalAppState::get().s_useTemporalReconstruction && !GlobalAppState::get().s_processSubset
+	unsigned int    m_queueStartIdx = 0; ///< if GlobalAppState::get().s_useTemporalReconstruction && !GlobalAppState::get().s_processSubset
+	FrameCache*     m_frameCache = nullptr; ///< if GlobalAppState::get().s_processSubset
+	unsigned int	m_sensorDataCacheCurrFrame = 0; ///< if GlobalAppState::get().s_processSubset
 
 	unsigned int	m_numFrames;
 	unsigned int	m_currFrame;

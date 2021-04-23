@@ -26,16 +26,24 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Adapt these paths
-dataset_folder="D:/neuhauser/datasets/ScanNet/raw/scans"
-depth_sensing_cuda_folder="D:/neuhauser/datasets/ScanNet/raw/scans"
+# Use MSYS2 on Windows to run this script. unzip and imagemagick needs to be
+# installed using the following command:
+# pacman -S unzip mingw-w64-x86_64-imagemagick
+
+# Adapt these paths for your system.
+#dataset_folder="D:/neuhauser/datasets/ScanNet"
+#depth_sensing_cuda_folder="C:/Users/neuhauser/Programming/C++/VoxelHashing/DepthSensingCUDA"
+dataset_folder="C:/Users/chris/Programming/DL/relight_aug/datasets/ScanNet"
+depth_sensing_cuda_folder="C:/Users/chris/Programming/C++/VoxelHashing/DepthSensingCUDA"
 #dataset_folder="/home/christoph/Programming/DL/relight_aug/datasets/ScanNet"
 #depth_sensing_cuda_folder="/home/christoph/Programming/C++/VoxelHashing/DepthSensingCUDA"
+export PATH=$PATH:"/c/Users/ga42wis/Programming/C++/VoxelHashing/DepthSensingCUDA/x64/Release/"
+export PATH=$PATH:"/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v7.5/bin/"
 
 template_conf="${dataset_folder}/zParametersSens_template.txt"
 config_file="${dataset_folder}/zParametersSens.txt"
 tracking_conf="${dataset_folder}/zParametersTrackingDefault.txt"
-scans_folder="${dataset_folder}/tmp/scans"
+scans_folder="${dataset_folder}/raw/scans"
 scenes_list_filename_train="${dataset_folder}/scannetv2_train.txt"
 scenes_list_filename_val="${dataset_folder}/scannetv2_val.txt"
 subset_list_folder_train="${dataset_folder}/scans_subset_list_train"
@@ -44,8 +52,6 @@ output_folder_tmp="${dataset_folder}/scans_VoxelHashing_tmp"
 output_folder_train="${dataset_folder}/scans_VoxelHashing_train"
 output_folder_val="${dataset_folder}/scans_VoxelHashing_val"
 
-export PATH=$PATH:"/c/Users/ga42wis/Programming/C++/VoxelHashing/DepthSensingCUDA/x64/Release/"
-export PATH=$PATH:"/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v7.5/bin/"
 cd "$depth_sensing_cuda_folder"
 
 scenes=`ls $scans_folder`
@@ -93,12 +99,14 @@ do
         done
     done < $subset_list_file_train
     orig_id_list_string="${orig_id_list[@]}"
+    sed -i "s|shall_process_subset|true|g" "$config_file"
     sed -i "s|orig_id_list|$orig_id_list_string|g" "$config_file"
 
     # Edit the config file for running the program.
     base_dir="$output_folder_tmp/${scene_name}"
     path_sens="$scans_folder/$scene_name/$scene_name.sens"
     sed -i "s|path_sens|$path_sens|g" "$config_file"
+    sed -i "s|output_folder_tmp|$output_folder_tmp|g" "$config_file"
 
     # Run program, output to output_folder_tmp
     if [ ! -d "$base_dir" ]; then
@@ -147,5 +155,7 @@ do
         cp "$output_folder_tmp/$scene_name/label-filt/${orig_idx}.png" "$output_folder/label-filt/${idx}.png"
         cp "$output_folder_tmp/$scene_name/normal/${orig_idx}.png" "$output_folder/normal/${idx}.png"
         cp "$output_folder_tmp/$scene_name/mask/${orig_idx}.png" "$output_folder/mask/${idx}.png"
+		# Downscale color image to 640x480 pixels (same size as the depth frames).
+		mogrify -resize 640x480 "$output_folder/color/${idx}.jpg"
     done < $subset_list_file_train
 done

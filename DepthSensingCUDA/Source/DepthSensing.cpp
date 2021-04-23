@@ -886,6 +886,7 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 
 #ifdef SENSOR_DATA_READER
 	if (g_frameSubsetIndices.empty() && GlobalAppState::get().s_processSubset) {
+		assert(GlobalAppState::get().s_sensorIdx == GlobalAppState::Sensor_SensorDataReader);
 		std::stringstream stream(GlobalAppState::get().s_subsetIdxString);
 		unsigned int idx;
 		while (stream >> idx) {
@@ -893,6 +894,8 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 		}
 		g_temporalCentralFrameCounter = g_frameSubsetIndices.at(g_subsetFrameCounter);
 		g_temporalFrameCounter = (unsigned int)std::max(0, (int)g_temporalCentralFrameCounter - (int)GlobalAppState::get().s_halfNumTemporalFrames);
+		SensorDataReader* sensor = (SensorDataReader*)getRGBDSensor();
+		sensor->setCurrFrame(g_temporalFrameCounter);
 	}
 
 	//only if sensor data reader
