@@ -77,10 +77,10 @@ do
     if [ ! -f "${subset_list_file_train}" ] && [ ! -f "${subset_list_file_val}" ]; then
         continue
     fi
-    if [ ! -f "${subset_list_file_train}" ]; then
+    if [ -f "${subset_list_file_train}" ]; then
         subset_list_file="$subset_list_file_train"
     fi
-    if [ ! -f "${subset_list_file_val}" ]; then
+    if [ -f "${subset_list_file_val}" ]; then
         subset_list_file="$subset_list_file_val"
     fi
 
