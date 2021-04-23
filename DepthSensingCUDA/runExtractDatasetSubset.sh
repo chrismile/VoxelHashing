@@ -163,6 +163,6 @@ do
         cp "$output_folder_tmp/$scene_name/normal/${orig_idx}.png" "$output_folder/normal/${idx}.png"
         cp "$output_folder_tmp/$scene_name/mask/${orig_idx}.png" "$output_folder/mask/${idx}.png"
 		# Downscale color image to 640x480 pixels (same size as the depth frames).
-		mogrify -resize 640x480 "$output_folder/color/${idx}.jpg"
+		mogrify -resize 640x480! "$output_folder/color/${idx}.jpg"
     done
 done
