@@ -73,9 +73,15 @@ i=1
 for scene_name in $scenes
 do
     subset_list_file_train="${subset_list_folder_train}/${scene_name}.txt"
-    subset_list_file_val="${subset_list_folder_train}/${scene_name}.txt"
+    subset_list_file_val="${subset_list_folder_val}/${scene_name}.txt"
     if [ ! -f "${subset_list_file_train}" ] && [ ! -f "${subset_list_file_val}" ]; then
         continue
+    fi
+    if [ ! -f "${subset_list_file_train}" ]; then
+        subset_list_file="$subset_list_file_train"
+    fi
+    if [ ! -f "${subset_list_file_val}" ]; then
+        subset_list_file="$subset_list_file_val"
     fi
 
     echo "Processing ${scene_name}..."
@@ -88,7 +94,7 @@ do
 
     # Add used files in scene to config file.
     orig_id_list=()
-    while read line
+    cat $subset_list_file | tr -d "\r" | while read line
     do
         i=0
         for word in $line
@@ -98,7 +104,7 @@ do
             fi
             i=$((i+1))
         done
-    done < $subset_list_file_train
+    done
     orig_id_list_string="${orig_id_list[@]}"
     sed -i "s|shall_process_subset|true|g" "$config_file"
     sed -i "s|orig_id_list|$orig_id_list_string|g" "$config_file"
@@ -139,7 +145,7 @@ do
     fi
 
     # Copy files to correct directory.
-    cat $subset_list_file_train | tr -d "\r" | while read line
+    cat $subset_list_file | tr -d "\r" | while read line
     do
         i=0
         for word in $line
