@@ -43,10 +43,8 @@ s_SDFRayThresDistFactor = 50.0f;		//(don't touch) s_SDFRayThresDist = s_SDFRayTh
 s_SDFUseGradients 		= false;		//analytic gradients for rendering
 
 // .sens file input for offline processing (need to set s_sensorIdx accordingly)
-s_binaryDumpSensorFile[0] = "C:\Users\chris\Programming\DL\relight_aug\datasets\ScanNet\raw\scans\scene0007_00\scene0007_00.sens";
-//s_binaryDumpSensorFile[0] = "C:\Users\chris\Programming\DL\relight_aug\datasets\ScanNet\raw\scans\scene0528_00\scene0528_00.sens";
-//s_binaryDumpSensorFile[1] = "C:\Users\chris\Programming\DL\relight_aug\datasets\ScanNet\raw\scans\scene0007_00\scene0007_00.sens";
-//s_binaryDumpSensorFile[1] = "C:\Users\chris\Programming\DL\relight_aug\datasets\ScanNet\raw\scans\scene0528_00\scene0528_00.sens";
+s_binaryDumpSensorFile[0] = "D:/neuhauser/datasets/ScanNet/raw/scans/scene0007_00/scene0007_00.sens";
+//s_binaryDumpSensorFile[1] = "D:/neuhauser/datasets/ScanNet/raw/scans/scene0528_00/scene0528_00.sens";
 
 s_binaryDumpSensorUseTrajectory = true;
 s_binaryDumpSensorUseTrajectoryOnlyInit = false;	//only valid if prev is true; precomputed traj for ICP, which is run
@@ -107,7 +105,7 @@ s_recordCompression = true;		//if recoding is enabled; then compression is used 
 s_recordDataFile = "Dump/test.sens";
 s_reconstructionEnabled = true;
 s_renderToFile = true;				//for making paper videos: renders all input/raycasts etc. to images
-s_renderToFileDir = "./scans/";
+s_renderToFileDir = "D:/neuhauser/datasets/ScanNet/scans_VoxelHashing/";
 
 s_offlineProcessing = false;			//slower, but makes sure that all voxels are alllocated and streaming all blocks is enforced
 s_useSensorReplay = false;

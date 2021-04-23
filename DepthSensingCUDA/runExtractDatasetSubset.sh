@@ -31,13 +31,13 @@
 # pacman -S unzip mingw-w64-x86_64-imagemagick
 
 # Adapt these paths for your system.
-#dataset_folder="D:/neuhauser/datasets/ScanNet"
-#depth_sensing_cuda_folder="C:/Users/neuhauser/Programming/C++/VoxelHashing/DepthSensingCUDA"
-dataset_folder="C:/Users/chris/Programming/DL/relight_aug/datasets/ScanNet"
-depth_sensing_cuda_folder="C:/Users/chris/Programming/C++/VoxelHashing/DepthSensingCUDA"
+dataset_folder="D:/neuhauser/datasets/ScanNet"
+depth_sensing_cuda_folder="C:/Users/neuhauser/Programming/C++/VoxelHashing/DepthSensingCUDA"
+#dataset_folder="C:/Users/chris/Programming/DL/relight_aug/datasets/ScanNet"
+#depth_sensing_cuda_folder="C:/Users/chris/Programming/C++/VoxelHashing/DepthSensingCUDA"
 #dataset_folder="/home/christoph/Programming/DL/relight_aug/datasets/ScanNet"
 #depth_sensing_cuda_folder="/home/christoph/Programming/C++/VoxelHashing/DepthSensingCUDA"
-export PATH=$PATH:"/c/Users/ga42wis/Programming/C++/VoxelHashing/DepthSensingCUDA/x64/Release/"
+export PATH=$PATH:"/c/Users/neuhauser/Programming/C++/VoxelHashing/DepthSensingCUDA/x64/Release/"
 export PATH=$PATH:"/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v7.5/bin/"
 
 template_conf="${dataset_folder}/zParametersSens_template.txt"
