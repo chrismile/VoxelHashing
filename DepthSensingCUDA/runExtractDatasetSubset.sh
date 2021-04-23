@@ -139,7 +139,7 @@ do
     fi
 
     # Copy files to correct directory.
-    while read line
+    cat $subset_list_file_train | tr -d "\r" | while read line
     do
         i=0
         for word in $line
@@ -158,5 +158,5 @@ do
         cp "$output_folder_tmp/$scene_name/mask/${orig_idx}.png" "$output_folder/mask/${idx}.png"
 		# Downscale color image to 640x480 pixels (same size as the depth frames).
 		mogrify -resize 640x480 "$output_folder/color/${idx}.jpg"
-    done < $subset_list_file_train
+    done
 done
