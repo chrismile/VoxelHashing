@@ -135,7 +135,7 @@ namespace Util
 
 		ColorImageR16 cImage(height, width);
 		for (unsigned int i = 0; i < cImage.getWidth() * cImage.getHeight(); i++) {
-			if (h_buffer[4 * i + 0] == -std::numeric_limits<float>::infinity()) {
+			if (h_buffer[i] == -std::numeric_limits<float>::infinity()) {
 				cImage.getDataPointer()[i] = 0;
 			}
 			else {

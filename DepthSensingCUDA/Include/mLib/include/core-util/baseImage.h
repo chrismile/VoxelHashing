@@ -851,6 +851,7 @@ typedef ColorImageRGBA	ColorImageR32G32B32A32;
 
 typedef BaseImage<float>	ColorImageR32;
 typedef BaseImage<uint8_t>	ColorImageR8;
+typedef BaseImage<uint16_t>	ColorImageR16;
 typedef BaseImage<vec3uc>	ColorImageR8G8B8;
 typedef BaseImage<vec4uc>	ColorImageR8G8B8A8;
 
