@@ -94,7 +94,7 @@ do
 
     # Add used files in scene to config file.
     orig_id_list=()
-    cat $subset_list_file | tr -d "\r" | while read line
+    while read line
     do
         i=0
         for word in $line
@@ -104,7 +104,7 @@ do
             fi
             i=$((i+1))
         done
-    done
+    done <<<$(cat $subset_list_file | tr -d "\r")
     orig_id_list_string="${orig_id_list[@]}"
     sed -i "s|shall_process_subset|true|g" "$config_file"
     sed -i "s|orig_id_list|$orig_id_list_string|g" "$config_file"
@@ -142,7 +142,7 @@ do
     fi
 
     # Copy files to correct directory.
-    cat $subset_list_file | tr -d "\r" | while read line
+    while read line
     do
         i=0
         for word in $line
@@ -164,5 +164,5 @@ do
         cp "$output_folder_tmp/$scene_name/mask/${orig_idx}.png" "$output_folder/mask/${idx}.png"
 		# Downscale color image to 640x480 pixels (same size as the depth frames).
 		mogrify -resize 640x480! "$output_folder/color/${idx}.jpg"
-    done
+    done <<<$(cat $subset_list_file | tr -d "\r")
 done
