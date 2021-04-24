@@ -1157,8 +1157,11 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 		MLIB_CUDA_SAFE_CALL(cudaMemcpy(gd_centralFrameDepth, g_CudaDepthSensor.getDepthMapFilteredFloat(), sizeof(float) * g_CudaDepthSensor.getDepthWidth() * g_CudaDepthSensor.getDepthHeight(), cudaMemcpyDeviceToDevice));
 		saveColorImage(pd3dImmediateContext, g_temporalCentralFrameCounter);
 	}
-	if (GlobalAppState::get().s_useTemporalReconstruction && (int)g_temporalFrameCounter - (int)g_temporalCentralFrameCounter == (int)GlobalAppState::get().s_halfNumTemporalFrames && GlobalAppState::get().s_renderToFile) {
-		renderToFile(pd3dImmediateContext, g_temporalCentralFrameCounter, g_replaySensorData);
+	if (GlobalAppState::get().s_useTemporalReconstruction && GlobalAppState::get().s_sensorIdx == GlobalAppState::Sensor_SensorDataReader && GlobalAppState::get().s_renderToFile) {
+		SensorDataReader* sensor = (SensorDataReader*)getRGBDSensor();
+		if ((int)g_temporalFrameCounter - (int)g_temporalCentralFrameCounter == (int)GlobalAppState::get().s_halfNumTemporalFrames || (int)g_temporalFrameCounter == (int)sensor->getNumFrames() - 1) {
+			renderToFile(pd3dImmediateContext, g_temporalCentralFrameCounter, g_replaySensorData);
+		}
 	}
 	if (!GlobalAppState::get().s_useTemporalReconstruction && ((g_replaySensorData && g_replayFramesValid.at(g_replayFrameNumber)) || !GlobalAppState::get().s_useSensorReplay) && GlobalAppState::get().s_renderToFile) {
 		unsigned int frameNumber = g_replaySensorData ? g_replayFrameNumber : (g_RGBDAdapter.getFrameNumber() - 1);

@@ -42,7 +42,9 @@ namespace stb {
 #include <cassert>
 #include <iostream>
 #include <atomic>
+#include <condition_variable>
 
+#include "CircularQueue.h"
 
 namespace ml {
 
@@ -1162,105 +1164,151 @@ namespace ml {
 
 	};
 	
-			class RGBDFrameCacheRead {
-		public:
-			struct FrameState {
-				FrameState() {
-					m_bIsReady = false;
-					m_colorFrame = NULL;
-					m_depthFrame = NULL;
-				}
-				~FrameState() {
-					//NEEDS MANUAL FREE
-				}
-				void free() {
-					if (m_colorFrame) std::free(m_colorFrame);
-					if (m_depthFrame) std::free(m_depthFrame);
-				}
-				bool			m_bIsReady;
-				vec3uc*			m_colorFrame;
-				unsigned short*	m_depthFrame;
-			};
-			RGBDFrameCacheRead(SensorData* sensorData, unsigned int cacheSize) : m_decompThread() {
-				m_sensorData = sensorData;
-				m_cacheSize = cacheSize;
-				m_bTerminateThread = false;
-				m_nextFromSensorCache = 0;
-				m_nextFromSensorData = 0;
-				startDecompBackgroundThread();
+
+	class RGBDFrameCacheRead {
+	public:
+		struct FrameState {
+			FrameState() {
+				m_bIsReady = false;
+				m_colorFrame = NULL;
+				m_depthFrame = NULL;
 			}
+			~FrameState() {
+				//NEEDS MANUAL FREE
+			}
+			void free() {
+				if (m_colorFrame) std::free(m_colorFrame);
+				if (m_depthFrame) std::free(m_depthFrame);
+			}
+			bool			m_bIsReady;
+			vec3uc*			m_colorFrame;
+			unsigned short*	m_depthFrame;
+		};
 
-			~RGBDFrameCacheRead() {
-				m_bTerminateThread = true;
-				if (m_decompThread.joinable()) {
-					m_decompThread.join();
+		RGBDFrameCacheRead(SensorData* sensorData, unsigned int cacheSize) : m_decompThread() {
+			m_sensorData = sensorData;
+			m_cacheSize = cacheSize;
+			m_bTerminateThread = false;
+			m_bSetFrameNumber = false;
+			m_nextFromSensorCache = 0;
+			m_nextFromSensorData = 0;
+			m_decompThread = std::thread(&RGBDFrameCacheRead::decompFunc, this);
+		}
+
+		~RGBDFrameCacheRead() {
+			std::unique_lock<std::mutex> queueLock(m_mutexList);
+			m_bTerminateThread = true;
+			queueLock.unlock();
+			m_stateChanged.notify_all();
+			if (m_decompThread.joinable()) {
+				m_decompThread.join();
+			}
+			clear();
+		}
+
+		FrameState getNext() {
+			while (1) {
+				if (m_nextFromSensorCache >= m_sensorData->m_frames.size()) {
+					break;
 				}
 
-				for (auto& fs : m_data) {
+				std::unique_lock<std::mutex> queueLock(m_mutexList);
+				m_elementAdded.wait(queueLock, [this] { return m_data.getSize() > 0; });
+				FrameState fs = m_data.popFront();
+				queueLock.unlock();
+				m_stateChanged.notify_all();
+
+				m_nextFromSensorCache++;
+				return fs;
+			}
+			return FrameState();
+		}
+
+		void setFrameNumber(int frameNumber) {
+			m_nextFromSensorCache = frameNumber;
+
+			std::unique_lock<std::mutex> lock(m_mutexList);
+			m_nextFromSensorData = frameNumber;
+			m_bSetFrameNumber = true;
+			lock.unlock();
+			m_stateChanged.notify_all();
+		}
+
+	private:
+		// Warning: Not thread-safe! Call this function only when a lock was acquired.
+		void clear() {
+			while (!m_data.isEmpty()) {
+				m_data.popFront().free();
+			}
+		}
+
+		void decompFunc() {
+			RGBDFrameCacheRead* cache = this;
+			while (1) {
+				// Get the current frame number. If the frame number was set recently, clear m_bSetFrameNumber.
+				unsigned int frameNumber;
+				{
+					std::lock_guard<std::mutex> queueLock(m_mutexList);
+					frameNumber = m_nextFromSensorData;
+					if (m_bSetFrameNumber) {
+						clear();
+						m_bSetFrameNumber = false;
+					}
+				}
+
+				// Decompress the next frame if we haven't reached the end of the sensor data array.
+				FrameState fs;
+				if (frameNumber < m_sensorData->m_frames.size()) {
+					SensorData::RGBDFrame& frame = m_sensorData->m_frames[frameNumber];
+					fs.m_colorFrame = m_sensorData->decompressColorAlloc(frame);
+					fs.m_depthFrame = m_sensorData->decompressDepthAlloc(frame);
+					fs.m_bIsReady = true;
+				}
+
+				// Wait for one of the following events:
+				// - A frame was processed and the cache has space.
+				// - The application is to be terminated.
+				// - The frame number was set.
+				std::unique_lock<std::mutex> queueLock(m_mutexList);
+				m_stateChanged.wait(queueLock, [this, frameNumber] {
+					return (frameNumber < m_sensorData->m_frames.size() && m_data.getSize() < m_cacheSize)
+						|| m_bTerminateThread || m_bSetFrameNumber;
+				});
+
+				if (m_bTerminateThread) {
+					queueLock.unlock();
+					fs.free();
+					break;
+				}
+				else if (m_bSetFrameNumber) {
+					clear();
+					m_bSetFrameNumber = false;
+					queueLock.unlock();
 					fs.free();
 				}
-			}
-
-			FrameState getNext() {
-				while (1) {
-					if (m_nextFromSensorCache >= m_sensorData->m_frames.size()) {
-						m_bTerminateThread = true;	// should be already true anyway
-						break; //we're done
-					}
-					if (m_data.size() > 0 && m_data.front().m_bIsReady) {
-						m_mutexList.lock();
-						FrameState fs = m_data.front();
-						m_data.pop_front();
-						m_mutexList.unlock();
-						m_nextFromSensorCache++;
-						return fs;
-					}
-					else {
-						Sleep(0);
-					}
-				}
-				return FrameState();
-			}
-
-		private:
-			void startDecompBackgroundThread() {
-				m_decompThread = std::thread(decompFunc, this);
-			}
-
-			static void decompFunc(RGBDFrameCacheRead* cache) {
-				while (1) {
-					if (cache->m_bTerminateThread) break;
-					if (cache->m_nextFromSensorData >= cache->m_sensorData->m_frames.size()) break;	//we're done
-
-					if (cache->m_data.size() < cache->m_cacheSize) {	//need to fill the cache
-						cache->m_mutexList.lock();
-						cache->m_data.push_back(FrameState());
-						cache->m_mutexList.unlock();
-
-						SensorData* sensorData = cache->m_sensorData;
-						SensorData::RGBDFrame& frame = sensorData->m_frames[cache->m_nextFromSensorData];
-						FrameState& fs = cache->m_data.back();
-
-						//std::cout << "decompressing frame " << cache->m_nextFromSensorData << std::endl;
-						fs.m_colorFrame = sensorData->decompressColorAlloc(frame);
-						fs.m_depthFrame = sensorData->decompressDepthAlloc(frame);
-						fs.m_bIsReady = true;
-						cache->m_nextFromSensorData++;
-					}
+				else if (m_nextFromSensorData < m_sensorData->m_frames.size() && m_data.getSize() < m_cacheSize) {
+					m_data.enqueue(fs);
+					queueLock.unlock();
+					m_elementAdded.notify_one();
+					m_nextFromSensorData++;
 				}
 			}
+		}
 
-			SensorData* m_sensorData;
-			unsigned int m_cacheSize;
+		SensorData* m_sensorData;
+		unsigned int m_cacheSize;
 
-			std::list<FrameState> m_data;
-			std::thread m_decompThread;
-			std::mutex m_mutexList;
-			std::atomic<bool> m_bTerminateThread;
+		CircularQueue<FrameState> m_data;
+		std::thread m_decompThread;
+		std::mutex m_mutexList;
+		std::condition_variable m_elementAdded;
+		std::condition_variable m_stateChanged;
+		bool m_bTerminateThread;
+		bool m_bSetFrameNumber;
 
-			unsigned int m_nextFromSensorData;
-			unsigned int m_nextFromSensorCache;
-		};
+		unsigned int m_nextFromSensorData;
+		unsigned int m_nextFromSensorCache;
+	};
 
 		class RGBDFrameCacheWrite {
 		private:

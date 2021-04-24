@@ -18,8 +18,6 @@
 #include <vector>
 #include <string>
 
-#include <conio.h>
-
 SensorDataReader::SensorDataReader()
 {
 	m_numFrames = 0;
@@ -108,6 +106,10 @@ void SensorDataReader::setCurrFrame(unsigned int currFrame) {
 	//}
 	m_queueStartIdx = currFrame;
 	m_currFrame = currFrame;
+	if (GlobalAppState::get().s_processSubset && (int)currFrame - (int)m_sensorDataCacheCurrFrame > (int)GlobalAppState::get().s_halfNumTemporalFrames) {
+		m_sensorDataCacheCurrFrame = currFrame;
+		m_sensorDataCache->setFrameNumber(currFrame);
+	}
 }
 
 void SensorDataReader::loadNextSensFile() {
@@ -256,17 +258,14 @@ void SensorDataReader::releaseData()
 	m_currFrame = 0;
 	m_bHasColorData = false;
 
+	SAFE_DELETE(m_sensorDataCache);
 	if (GlobalAppState::get().s_processSubset && m_frameCache) {
-		SAFE_DELETE(m_sensorDataCache);
 		delete m_frameCache;
 		m_frameCache = nullptr;
 	}
-	else {
-		SAFE_DELETE(m_sensorDataCache);
-		if (m_sensorData) {
-			m_sensorData->free();
-			SAFE_DELETE(m_sensorData);
-		}
+	if (m_sensorData) {
+		m_sensorData->free();
+		SAFE_DELETE(m_sensorData);
 	}
 }
 
