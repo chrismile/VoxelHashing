@@ -253,6 +253,10 @@ ml::mat4f SensorDataReader::getRigidTransform(int offset) const
 	//return m_data.m_trajectory[idx];
 }
 
+float SensorDataReader::getDepthShift()  const {
+	return m_sensorData->m_depthShift;
+}
+
 void SensorDataReader::releaseData()
 {
 	m_currFrame = 0;

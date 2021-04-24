@@ -76,7 +76,9 @@ public:
 	unsigned int getDepthWidth() const;
 	unsigned int getDepthHeight() const;
 
-	virtual void reset(); 
+	virtual float getDepthShift() const;
+
+	virtual void reset();
 
 	//! saves the point cloud of the current frame to a file
 	void savePointCloud(const std::string& filename, const mat4f& transform = mat4f::identity()) const;

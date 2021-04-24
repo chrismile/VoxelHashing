@@ -220,6 +220,10 @@ unsigned int RGBDSensor::getDepthHeight() const {
 	return m_depthHeight;
 }
 
+float RGBDSensor::getDepthShift()  const {
+	return m_recordedData->m_depthShift;
+}
+
 void RGBDSensor::reset()
 {
 	if (m_recordedDepthData.size()) {

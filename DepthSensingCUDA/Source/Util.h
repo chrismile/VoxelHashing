@@ -128,6 +128,25 @@ namespace Util
 		SAFE_DELETE_ARRAY(h_buffer);
 	}
 
+	static void writeToDepthImage(float* d_buffer, unsigned int width, unsigned int height, float depthShift, const std::string& filename) {
+		unsigned int size = width * height;
+		float* h_buffer = new float[size];
+		cudaMemcpy(h_buffer, d_buffer, sizeof(float)*size, cudaMemcpyDeviceToHost);
+
+		ColorImageR16 cImage(height, width);
+		for (unsigned int i = 0; i < cImage.getWidth() * cImage.getHeight(); i++) {
+			if (h_buffer[4 * i + 0] == -std::numeric_limits<float>::infinity()) {
+				cImage.getDataPointer()[i] = 0;
+			}
+			else {
+				cImage.getDataPointer()[i] = uint16_t(clamp(std::round(h_buffer[i] * depthShift), 0.0f, 65535.0f));
+			}
+		}
+		FreeImageWrapper::saveImage(filename, cImage);
+
+		SAFE_DELETE_ARRAY(h_buffer);
+	}
+
 	// For the depth mask
 	static void writeToImage(uint8_t* d_buffer, unsigned int width, unsigned int height, const std::string& filename) {
 		uint8_t* h_buffer = new uint8_t[width * height];

@@ -1221,7 +1221,8 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 	//const std::string reconstructColorDir = baseFolder + "/" + "reconstruction_color/"; if (!util::directoryExists(reconstructColorDir)) util::makeDirectory(reconstructColorDir);
 	//std::string inputColorDir;
 	std::string depthMaskDir;
-	std::string normalsDir; 
+	std::string normalsDir;
+	std::string depthDir;
 
 	if (GlobalAppState::get().s_sensorIdx == GlobalAppState::Sensor_SensorDataReader) {
 		SensorDataReader* sensor = (SensorDataReader*)getRGBDSensor();
@@ -1235,15 +1236,18 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 		//inputColorDir = baseFolder + "/" + sceneName + "/" + "color/";
 		depthMaskDir = baseFolder + "/" + sceneName + "/" + "mask/";
 		normalsDir = baseFolder + "/" + sceneName + "/" + "normal/";
+		depthDir = baseFolder + "/" + sceneName + "/" + "depth/";
 	}
 	else {
 		//inputColorDir = baseFolder + "/" + "input_color/";
 		depthMaskDir = baseFolder + "/" + "mask/";
 		normalsDir = baseFolder + "/" + "normal/";
+		depthDir = baseFolder + "/" + "depth/";
 	}
 	//if (!util::directoryExists(inputColorDir)) util::makeDirectory(inputColorDir);
 	if (!util::directoryExists(depthMaskDir)) util::makeDirectory(depthMaskDir);
 	if (!util::directoryExists(normalsDir)) util::makeDirectory(normalsDir);
+	if (!util::directoryExists(depthDir)) util::makeDirectory(depthDir);
 
 
 	if (GlobalAppState::get().s_useTemporalReconstruction) {
@@ -1266,7 +1270,7 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 	ssFrameNumber << frameNumber;
 
 	mat4f view = mat4f::identity();
-	{	// reconstruction normals
+	{	// reconstruction normals/depth
 		bool frameIsValid = true;
 		if (GlobalAppState::get().s_useTemporalReconstruction) {
 			unsigned int numInvalid = 0;
@@ -1287,6 +1291,7 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 		}
 
 		bool normalsManuallyAllocated = false;
+		float* d_depth;
 		float4* d_normals;
 		if (!frameIsValid || (!g_replaySensorData && !GlobalAppState::get().s_useTemporalReconstruction && frameNumber == 0)) {
 			normalsManuallyAllocated = true;
@@ -1313,23 +1318,27 @@ void renderToFile(ID3D11DeviceContext* pd3dImmediateContext, unsigned int frameN
 			computeDepthMask_NoVoxelHashing(d_depthMask, d_filteredDepth, d_normals, width, height);
 			Util::writeToImage(d_depthMask, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), depthMaskDir + ssFrameNumber.str() + ".png");
 
-			MLIB_CUDA_SAFE_CALL(cudaFree(d_inpaintedDepth));
+			d_depth = d_inpaintedDepth;
 			MLIB_CUDA_SAFE_CALL(cudaFree(d_inpaintedDepth4));
 			MLIB_CUDA_SAFE_CALL(cudaFree(d_depthMask));
 		}
 		else {
 			if (GlobalAppState::getInstance().s_useDepthMapInpainting) {
 				d_normals = g_rayCast->getRayCastData().d_normalsInpainted;
+				d_depth = g_rayCast->getRayCastData().d_depthInpainted;
 			}
 			else {
 				d_normals = g_rayCast->getRayCastData().d_normals;
+				d_depth = g_rayCast->getRayCastData().d_depth;
 			}
 			Util::writeToImage(g_rayCast->getRayCastData().d_depthMask, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), depthMaskDir + ssFrameNumber.str() + ".png");
 		}
 		Util::writeToNormalImage(d_normals, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), normalsDir + ssFrameNumber.str() + ".png");
+		Util::writeToDepthImage(d_depth, getRGBDSensor()->getDepthWidth(), getRGBDSensor()->getDepthHeight(), getRGBDSensor()->getDepthShift(), depthDir + ssFrameNumber.str() + ".png");
 
 		if (normalsManuallyAllocated) {
 			MLIB_CUDA_SAFE_CALL(cudaFree(d_normals));
+			MLIB_CUDA_SAFE_CALL(cudaFree(d_depth));
 		}
 	}
 	/*{	// reconstruction

@@ -44,6 +44,8 @@ public:
 
 	mat4f getRigidTransform(int offset) const;
 
+	virtual float getDepthShift() const override;
+
 	const SensorData* getSensorData() const {
 		return m_sensorData;
 	}
