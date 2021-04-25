@@ -4,7 +4,7 @@ For use in a publication or presentation, please cite the VoxelHashing publicati
 
 
 INSTALLATION:
-The code was developed under VS2012.
+The code was developed under VS2013.
 
 CONTACT (feel free to contact us):
 niessner@cs.stanford.edu
@@ -13,7 +13,7 @@ michael.zollhoefer@cs.fau.de
 Requirements:
 - DirectX SDK June 2010
 - Kinect SDK (prev. to 2.0)
-- NVIDIA CUDA 6.5 (for the CUDA implementation)
+- NVIDIA CUDA 7.5 (for the CUDA implementation)
 
 Optional:
 - Kinect SDK (2.0 and above)
