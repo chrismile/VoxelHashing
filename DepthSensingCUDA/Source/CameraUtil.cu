@@ -673,11 +673,12 @@ __global__ void computeNormalsDevice(float4* d_output, float4* d_input, unsigned
 
 	d_output[y*width+x] = make_float4(MINF, MINF, MINF, MINF);
 
-	int leftIdx = x > 0 ? (y+0)*width+(x-1) : 0;
-	int rightIdx = x < (width - 1) ? (y+0)*width+(x+1) : 0;
-	int topIdx = y > 0 ? (y-1)*width+(x+0) : 0;
-	int bottomIdx = y < (height - 1) ? (y+1)*width+(x+0) : 0;
-	const float4 CC = d_input[(y+0)*width+(x+0)];
+	int centerIdx = (y+0)*width+(x+0);
+	int leftIdx = x > 0 ? (y+0)*width+(x-1) : centerIdx;
+	int rightIdx = x < (width - 1) ? (y+0)*width+(x+1) : centerIdx;
+	int topIdx = y > 0 ? (y-1)*width+(x+0) : centerIdx;
+	int bottomIdx = y < (height - 1) ? (y+1)*width+(x+0) : centerIdx;
+	const float4 CC = d_input[centerIdx];
 	const float4 PC = d_input[bottomIdx];
 	const float4 CP = d_input[rightIdx];
 	const float4 MC = d_input[topIdx];
