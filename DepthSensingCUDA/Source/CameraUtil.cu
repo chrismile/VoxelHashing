@@ -673,7 +673,28 @@ __global__ void computeNormalsDevice(float4* d_output, float4* d_input, unsigned
 
 	d_output[y*width+x] = make_float4(MINF, MINF, MINF, MINF);
 
-	if(x > 0 && x < width-1 && y > 0 && y < height-1)
+	int leftIdx = x > 0 ? (y+0)*width+(x-1) : 0;
+	int rightIdx = x < (width - 1) ? (y+0)*width+(x+1) : 0;
+	int topIdx = y > 0 ? (y-1)*width+(x+0) : 0;
+	int bottomIdx = y < (height - 1) ? (y+1)*width+(x+0) : 0;
+	const float4 CC = d_input[(y+0)*width+(x+0)];
+	const float4 PC = d_input[bottomIdx];
+	const float4 CP = d_input[rightIdx];
+	const float4 MC = d_input[topIdx];
+	const float4 CM = d_input[leftIdx];
+
+	if(CC.x != MINF && PC.x != MINF && CP.x != MINF && MC.x != MINF && CM.x != MINF)
+	{
+		const float3 n = cross(make_float3(PC)-make_float3(MC), make_float3(CP)-make_float3(CM));
+		const float  l = length(n);
+
+		if(l > 0.0f)
+		{
+			d_output[y*width+x] = make_float4(n/-l, 1.0f);
+		}
+	}
+
+	/*if(x > 0 && x < width-1 && y > 0 && y < height-1)
 	{
 		const float4 CC = d_input[(y+0)*width+(x+0)];
 		const float4 PC = d_input[(y+1)*width+(x+0)];
@@ -691,7 +712,7 @@ __global__ void computeNormalsDevice(float4* d_output, float4* d_input, unsigned
 				d_output[y*width+x] = make_float4(n/-l, 1.0f);
 			}
 		}
-	}
+	}*/
 }
 
 extern "C" void computeNormals(float4* d_output, float4* d_input, unsigned int width, unsigned int height)
