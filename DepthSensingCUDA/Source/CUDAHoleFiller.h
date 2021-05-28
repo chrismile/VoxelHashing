@@ -116,10 +116,20 @@ private:
 	//! allocates GPU memory if necessary (can be safely called every frame)
 	void resize(unsigned int width, unsigned int height, unsigned int numLevels) {
 		if (numLevels == 0) {
+			//unsigned int numX = log2IntegerCeil(width);
+			//unsigned int numY = log2IntegerCeil(height);
+			//numLevels = std::max(numX, numY);
 
-			unsigned int numX = log2IntegerCeil(width);
-			unsigned int numY = log2IntegerCeil(height);
-			numLevels = std::max(numX, numY);
+			unsigned int testWidth = width;
+			unsigned int testHeight = height;
+			while (true) {
+				numLevels++;
+				if (testWidth == 1 && testHeight == 1) {
+					break;
+				}
+				testWidth = (testWidth + 1) / 2;
+				testHeight = (testHeight + 1) / 2;
+			}
 		}
 		if (width == m_ImageWidth && height == m_ImageHeight && m_ImagePullPushLevels == numLevels)	return;
 		releaseResources();
